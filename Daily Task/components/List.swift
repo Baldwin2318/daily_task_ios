@@ -18,84 +18,169 @@ struct ListView: View {
     
     @State private var newItemText: String = ""
     @State private var showingAddItemSheet = false
+    @State private var showingCompletedTasksSheet = false // State for completed tasks sheet
+    
+    // Use this state to track the focused item so that new tasks can become active automatically.
+    @FocusState private var focusedItem: Item?
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        // Display the custom text; fallback to timestamp if needed.
-                        Text("Item: \(item.text ?? "No Text")")
-                    } label: {
-                        Text(item.text ?? "No Text")
+            ZStack{
+                // Background view that handles tap gestures
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if let item = focusedItem {
+                            if item.text?.isEmpty ?? true {
+                                deleteItem(item)
+                            } else {
+                                saveContext()
+                            }
+                        }
+                        focusedItem = nil
                     }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button {
-                        showingAddItemSheet = true
-                    } label: {
-                        Label("Add Item", systemImage: "plus")
+                if items.isEmpty {
+                    // Show an empty state with an image and message.
+                    VStack(spacing: 16) {
+                        Image(systemName: "tray.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .foregroundColor(.secondary)
+                        Text("No tasks available.\nTap + to add one!")
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                        
+                        Button {
+                            addItem() // Create a new item and set focus.
+                        } label: {
+                            Label("", systemImage: "plus")
+                                .font(.system(size: 25))
+                        }
                     }
-                }
-            }
-            .sheet(isPresented: $showingAddItemSheet) {
-                VStack(spacing: 20) {
-                    Text("Add a New Item")
-                        .font(.headline)
-                    
-                    TextField("Enter your text", text: $newItemText)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding()
-                    
-                    Button("Save") {
+                    .onTapGesture {
                         addItem()
-                        showingAddItemSheet = false
                     }
-                    .padding()
-                    
-                    Spacer()
+                } else {
+                    List {
+                        ForEach(items) { item in
+                            HStack {
+                                Button(action: {
+                                    item.isCompleted.toggle()
+                                    saveContext()
+                                }) {
+                                    Image(systemName: item.isCompleted ? "checkmark.square" : "square")
+                                        .foregroundColor(item.isCompleted ? .green : .primary)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                                
+                                // Show TextField if the item is focused or its text is empty.
+                                if focusedItem == item || (item.text?.isEmpty ?? true) {
+                                    inlineTextField(for: item)
+                                } else {
+                                    Text(item.text ?? "No Text")
+                                        .strikethrough(item.isCompleted, color: .black)
+                                        .foregroundColor(item.isCompleted ? .gray : .primary)
+                                }
+                            }
+                        }
+                        .onDelete(perform: deleteItems)
+                    }
+                    .navigationTitle("Checklist")
+                    .toolbar {
+                        ToolbarItemGroup(placement: .navigationBarTrailing) {
+                            // Only show the sweep button if there are any completed tasks.
+                            if items.contains(where: { $0.isCompleted }) {
+                                Button {
+                                    showingCompletedTasksSheet = true
+                                } label: {
+                                    Image(systemName: "list.bullet.clipboard")
+                                        .renderingMode(.original)
+                                }
+                            }
+                            // Add button is always visible.
+                            Button {
+                                addItem() // Create a new item and set focus.
+                            } label: {
+                                Label("Add Item", systemImage: "plus")
+                            }
+                        }
+                    }
+                    // Dismiss the keyboard when tapping anywhere in the List background.
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            if let item = focusedItem {
+                                if item.text?.isEmpty ?? true {
+                                    deleteItem(item)
+                                } else {
+                                    saveContext()
+                                }
+                            }
+                            focusedItem = nil
+                        }
+                    )
                 }
-                .padding()
             }
+        }
+        // Present the sheet with completed tasks.
+        .sheet(isPresented: $showingCompletedTasksSheet) {
+            CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
         }
     }
 
+    @ViewBuilder
+    private func inlineTextField(for item: Item) -> some View {
+        TextField("Enter task", text: Binding(
+            get: { item.text ?? "" },
+            set: { newValue in
+                item.text = newValue
+            }
+        ))
+        .focused($focusedItem, equals: item)
+        .textFieldStyle(RoundedBorderTextFieldStyle())
+        .onSubmit {
+            if item.text?.isEmpty ?? true {
+                deleteItem(item)
+            } else {
+                saveContext()
+            }
+        }
+    }
+    
     private func addItem() {
         withAnimation {
             let newItem = Item(context: viewContext)
-            // Assign the user-input text to the new item.
-            newItem.text = newItemText
-            // You can still assign a timestamp if needed.
+            newItem.text = "" // Start with an empty text
             newItem.timestamp = Date()
+            newItem.isCompleted = false
 
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            saveContext()
             
-            // Reset the input field.
-            newItemText = ""
+            // Optionally, set focus on the new item for immediate editing.
+            focusedItem = newItem
         }
     }
-
+    
+    private func deleteItem(_ item: Item) {
+        withAnimation {
+            viewContext.delete(item)
+            saveContext()
+        }
+    }
+    
     private func deleteItems(offsets: IndexSet) {
         withAnimation {
             offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            saveContext()
+        }
+    }
+    
+    private func saveContext() {
+        do {
+            try viewContext.save()
+        } catch {
+            let nsError = error as NSError
+            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
         }
     }
 }
@@ -106,6 +191,63 @@ private let itemFormatter: DateFormatter = {
     formatter.timeStyle = .medium
     return formatter
 }()
+
+struct CompletedTasksSheet: View {
+    let completedTasks: [Item]
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.managedObjectContext) private var viewContext
+
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(completedTasks) { task in
+                    HStack {
+                        // Static checkbox image (non-interactive)
+                        Image(systemName: "checkmark.square")
+                            .foregroundColor(.green)
+                        Text(task.text ?? "No Text")
+                            .strikethrough(task.isCompleted, color: .black)
+                            .foregroundColor(task.isCompleted ? .gray : .primary)
+                    }
+                }
+            }
+            .navigationTitle("Completed Tasks")
+            .toolbar {
+                // Close button.
+//                ToolbarItem(placement: .cancellationAction) {
+//                    Button("Close") {
+//                        dismiss()
+//                    }
+//                }
+                // Circular CLEAN button.
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        cleanCompletedTasks()
+                        dismiss()
+                    }) {
+                        Text("CLEAN")
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func cleanCompletedTasks() {
+        withAnimation {
+            // Iterate over the completedTasks passed in and delete each one.
+            for task in completedTasks {
+                viewContext.delete(task)
+            }
+            do {
+                try viewContext.save()
+            } catch {
+                // Handle the error appropriately in your app.
+                print("Error cleaning tasks: \(error.localizedDescription)")
+            }
+        }
+    }
+}
 
 //#Preview {
 //    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)

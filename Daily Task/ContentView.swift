@@ -10,12 +10,12 @@ struct ContentView: View {
     private var items: FetchedResults<Item>
     
     var body: some View {
-        Text("Hello World")
-        ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        ListView()
     }
 
 }
 
 #Preview {
     ContentView()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
