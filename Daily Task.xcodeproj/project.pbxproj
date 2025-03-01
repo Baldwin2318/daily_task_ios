@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		55470DAD2D72937F0039BAA1 /* Daily Task.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Daily Task.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		55470DAD2D72937F0039BAA1 /* Daily Task - Simple Todo List.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Daily Task - Simple Todo List.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		55470DC22D7293810039BAA1 /* Daily TaskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Daily TaskTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		55470DCC2D7293810039BAA1 /* Daily TaskUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Daily TaskUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,7 +85,7 @@
 		55470DAE2D72937F0039BAA1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				55470DAD2D72937F0039BAA1 /* Daily Task.app */,
+				55470DAD2D72937F0039BAA1 /* Daily Task - Simple Todo List.app */,
 				55470DC22D7293810039BAA1 /* Daily TaskTests.xctest */,
 				55470DCC2D7293810039BAA1 /* Daily TaskUITests.xctest */,
 			);
@@ -114,7 +114,7 @@
 			packageProductDependencies = (
 			);
 			productName = "Daily Task";
-			productReference = 55470DAD2D72937F0039BAA1 /* Daily Task.app */;
+			productReference = 55470DAD2D72937F0039BAA1 /* Daily Task - Simple Todo List.app */;
 			productType = "com.apple.product-type.application";
 		};
 		55470DC12D7293810039BAA1 /* Daily TaskTests */ = {
@@ -410,7 +410,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Baldwin.Daily-Task";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Daily Task - Simple Todo List";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -439,7 +439,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Baldwin.Daily-Task";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Daily Task - Simple Todo List";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
