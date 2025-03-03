@@ -19,107 +19,103 @@ struct ListView: View {
     @State private var newItemText: String = ""
     @State private var showingAddItemSheet = false
     @State private var showingCompletedTasksSheet = false // State for completed tasks sheet
+    @State private var checkboxTapped = false
     
     // Use this state to track the focused item so that new tasks can become active automatically.
     @FocusState private var focusedItem: Item?
 
     var body: some View {
         NavigationView {
-            ZStack{
-                // Background view that handles tap gestures
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if let item = focusedItem {
-                            if item.text?.isEmpty ?? true {
-                                deleteItem(item)
-                            } else {
+            if items.isEmpty {
+                // Show an empty state with an image and message.
+                VStack(spacing: 16) {
+                    Image(systemName: "tray.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.secondary)
+                    Text("No tasks available.\nTap + to add one!")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                    
+                    Button {
+                        addItem() // Create a new item and set focus.
+                    } label: {
+                        Label("", systemImage: "plus")
+                            .font(.system(size: 25))
+                    }
+                }
+                .onTapGesture {
+                    addItem()
+                }
+            } else {
+                List {
+                    ForEach(items) { item in
+                        HStack {
+                            Button(action: {
+                                checkboxTapped = true
+                                item.isCompleted.toggle()
                                 saveContext()
+                            }) {
+                                Image(systemName: item.isCompleted ? "checkmark.square" : "square")
+                                    .foregroundColor(item.isCompleted ? .green : .primary)
+                                    .simultaneousGesture(TapGesture().onEnded {}) // Prevent tap gesture from interfering
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                            
+                            // Show TextField if the item is focused or its text is empty.
+                            if focusedItem == item || (item.text?.isEmpty ?? true) {
+                                inlineTextField(for: item)
+                            } else {
+                                Text(item.text ?? "No Text")
+                                    .strikethrough(item.isCompleted, color: .black)
+                                    .foregroundColor(item.isCompleted ? .gray : .primary)
                             }
                         }
-                        focusedItem = nil
                     }
-                if items.isEmpty {
-                    // Show an empty state with an image and message.
-                    VStack(spacing: 16) {
-                        Image(systemName: "tray.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 80, height: 80)
-                            .foregroundColor(.secondary)
-                        Text("No tasks available.\nTap + to add one!")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(.secondary)
-                        
+                    .onDelete(perform: deleteItems)
+                }
+                .navigationTitle("Checklist")
+                .toolbar {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        // Only show the sweep button if there are any completed tasks.
+                        if items.contains(where: { $0.isCompleted }) {
+                            Button {
+                                showingCompletedTasksSheet = true
+                            } label: {
+                                Image(systemName: "list.bullet.clipboard")
+                                    .renderingMode(.original)
+                            }
+                        }
+                        // Add button is always visible.
                         Button {
                             addItem() // Create a new item and set focus.
                         } label: {
-                            Label("", systemImage: "plus")
-                                .font(.system(size: 25))
+                            Label("Add Item", systemImage: "plus")
                         }
                     }
-                    .onTapGesture {
-                        addItem()
-                    }
-                } else {
-                    List {
-                        ForEach(items) { item in
-                            HStack {
-                                Button(action: {
-                                    item.isCompleted.toggle()
-                                    saveContext()
-                                }) {
-                                    Image(systemName: item.isCompleted ? "checkmark.square" : "square")
-                                        .foregroundColor(item.isCompleted ? .green : .primary)
-                                }
-                                .buttonStyle(BorderlessButtonStyle())
-                                
-                                // Show TextField if the item is focused or its text is empty.
-                                if focusedItem == item || (item.text?.isEmpty ?? true) {
-                                    inlineTextField(for: item)
-                                } else {
-                                    Text(item.text ?? "No Text")
-                                        .strikethrough(item.isCompleted, color: .black)
-                                        .foregroundColor(item.isCompleted ? .gray : .primary)
-                                }
-                            }
-                        }
-                        .onDelete(perform: deleteItems)
-                    }
-                    .navigationTitle("Checklist")
-                    .toolbar {
-                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-                            // Only show the sweep button if there are any completed tasks.
-                            if items.contains(where: { $0.isCompleted }) {
-                                Button {
-                                    showingCompletedTasksSheet = true
-                                } label: {
-                                    Image(systemName: "list.bullet.clipboard")
-                                        .renderingMode(.original)
-                                }
-                            }
-                            // Add button is always visible.
-                            Button {
-                                addItem() // Create a new item and set focus.
-                            } label: {
-                                Label("Add Item", systemImage: "plus")
-                            }
-                        }
-                    }
-                    // Dismiss the keyboard when tapping anywhere in the List background.
-                    .simultaneousGesture(
-                        TapGesture().onEnded {
-                            if let item = focusedItem {
-                                if item.text?.isEmpty ?? true {
-                                    deleteItem(item)
-                                } else {
-                                    saveContext()
-                                }
-                            }
-                            focusedItem = nil
-                        }
-                    )
                 }
+                // Dismiss the keyboard when tapping anywhere in the List background.
+                .simultaneousGesture(
+                    TapGesture()
+                        .onEnded {
+                            // Only add an item if the tap was NOT on a checkbox
+                            if !checkboxTapped {
+                                if focusedItem == nil {
+                                    //addItem()
+                                } else {
+                                    if let item = focusedItem, item.text?.isEmpty ?? true {
+                                        deleteItem(item)
+                                    } else {
+                                        saveContext()
+                                    }
+                                    focusedItem = nil
+                                }
+                            }
+                            checkboxTapped = false // Reset after handling tap
+                        }
+                )
+                
             }
         }
         // Present the sheet with completed tasks.
@@ -249,6 +245,6 @@ struct CompletedTasksSheet: View {
     }
 }
 
-//#Preview {
-//    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-//}
+#Preview {
+    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+}
