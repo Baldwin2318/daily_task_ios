@@ -102,7 +102,7 @@ struct ListView: View {
                             // Only add an item if the tap was NOT on a checkbox
                             if !checkboxTapped {
                                 if focusedItem == nil {
-                                    //addItem()
+                                    addItem()
                                 } else {
                                     if let item = focusedItem, item.text?.isEmpty ?? true {
                                         deleteItem(item)
@@ -115,7 +115,6 @@ struct ListView: View {
                             checkboxTapped = false // Reset after handling tap
                         }
                 )
-                
             }
         }
         // Present the sheet with completed tasks.
