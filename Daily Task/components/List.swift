@@ -83,7 +83,6 @@ struct ListView: View {
                                     .foregroundColor(item.isCompleted ? .gray : .primary)
                             }
                         }
-                        .b
                     }
                     .onDelete(perform: deleteItems)
                 }
