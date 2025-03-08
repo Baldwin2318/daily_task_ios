@@ -10,11 +10,21 @@ import CoreData
 
 struct ListView: View {
     @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    
+    var taskList: TaskList  // Pass in the specific list
+    
+    @FetchRequest var items: FetchedResults<Item>
+    
+    init(taskList: TaskList) {
+        self.taskList = taskList
+        // Filter tasks for the given list
+        _items = FetchRequest<Item>(
+            sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+            predicate: NSPredicate(format: "list == %@", taskList),
+            animation: .default
+        )
+    }
+    
     
     @State private var newItemText: String = ""
     @State private var showingAddItemSheet = false
@@ -29,7 +39,8 @@ struct ListView: View {
             if items.isEmpty {
                 // Show an empty state with an image and message.
                 VStack(spacing: 16) {
-                    Image(systemName: "tray.fill")
+                    Image(systemName: "list.bullet.clipboard")
+                        .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 80, height: 80)
@@ -72,27 +83,28 @@ struct ListView: View {
                                     .foregroundColor(item.isCompleted ? .gray : .primary)
                             }
                         }
+                        .b
                     }
                     .onDelete(perform: deleteItems)
                 }
-                .navigationTitle("Checklist")
+                .navigationTitle(taskList.name ?? "Checklist")
                 .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    ToolbarItemGroup(placement: .navigationBarLeading) {
                         // Only show the sweep button if there are any completed tasks.
                         if items.contains(where: { $0.isCompleted }) {
                             Button {
                                 showingCompletedTasksSheet = true
                             } label: {
                                 Image(systemName: "list.bullet.clipboard")
-                                    .renderingMode(.original)
+                                    .foregroundColor(.green)
                             }
                         }
                         // Add button is always visible.
-                        Button {
-                            addItem() // Create a new item and set focus.
-                        } label: {
-                            Label("Add Item", systemImage: "plus")
-                        }
+//                        Button {
+//                            addItem() // Create a new item and set focus.
+//                        } label: {
+//                            Label("Add Item", systemImage: "plus")
+//                        }
                     }
                 }
                 // Dismiss the keyboard when tapping anywhere in the List background.
@@ -148,6 +160,7 @@ struct ListView: View {
             newItem.text = "" // Start with an empty text
             newItem.timestamp = Date()
             newItem.isCompleted = false
+            newItem.list = taskList  // <-- Link new task to the current list
 
             saveContext()
             
@@ -220,7 +233,7 @@ struct CompletedTasksSheet: View {
                         cleanCompletedTasks()
                         dismiss()
                     }) {
-                        Text("CLEAN")
+                        Text("CLEAN ALL")
                             .foregroundColor(.green)
                     }
                 }
@@ -243,7 +256,7 @@ struct CompletedTasksSheet: View {
         }
     }
 }
-
-#Preview {
-    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-}
+//
+//#Preview {
+//    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+//}
