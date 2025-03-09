@@ -17,8 +17,12 @@ struct ListView: View {
     
     init(taskList: TaskList) {
         self.taskList = taskList
+        // Updated fetch request to sort by priority first, then timestamp
         _items = FetchRequest<Item>(
-            sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+            sortDescriptors: [
+                NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
+                NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
+            ],
             predicate: NSPredicate(format: "list == %@", taskList),
             animation: .default
         )
@@ -27,10 +31,7 @@ struct ListView: View {
     @State private var showingCompletedTasksSheet = false
     @State private var checkboxTapped = false
     
-    // Focus state for editing
     @FocusState private var focusedField: UUID?
-    
-    // Track the item being edited
     @State private var editingItemID: UUID?
 
     var body: some View {
@@ -77,8 +78,27 @@ struct ListView: View {
                                 onEndEditing: { endEditing() }
                             )
                             .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                // Delete action
+                                Button(role: .destructive) {
+                                    deleteItem(item)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                // Priority action
+                                Button {
+                                    togglePriority(item)
+                                } label: {
+                                    Label(
+                                        item.isPriority ? "Remove Priority" : "Prioritize",
+                                        systemImage: "flag"
+                                    )
+                                }
+                                .tint(.orange)
+                            }
                         }
-                        .onDelete(perform: deleteItems)
                     }
                     .listStyle(PlainListStyle())
                     .background(
@@ -93,24 +113,26 @@ struct ListView: View {
                     )
                 }
                 
-                // floating add button
-                VStack {
-                    Spacer()
-                    HStack {
+                // Add button (only show when not editing)
+                if editingItemID == nil {
+                    VStack {
                         Spacer()
-                        Button(action: {
-                            addNewItem()
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.blue)
-                                .clipShape(Circle())
-                                .shadow(radius: 4)
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                addNewItem()
+                            }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 50)
+                                    .background(Color.blue)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 4)
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
                         }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20)
                     }
                 }
             }
@@ -121,7 +143,6 @@ struct ListView: View {
         }
     }
     
-    // Add new task and immediately set it for editing
     private func addNewItem() {
         withAnimation {
             let newItem = Item(context: viewContext)
@@ -129,11 +150,12 @@ struct ListView: View {
             newItem.text = ""
             newItem.timestamp = Date()
             newItem.isCompleted = false
+            newItem.isPriority = false // Initialize as not priority
             newItem.list = taskList
             
             saveContext()
             
-            // Set focus to the new item - need a short delay
+            // Set focus to the new item
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self.editingItemID = newItem.id
                 self.focusedField = newItem.id
@@ -142,8 +164,17 @@ struct ListView: View {
     }
     
     private func toggleItemComplete(_ item: Item) {
-        item.isCompleted.toggle()
-        saveContext()
+        withAnimation {
+            item.isCompleted.toggle()
+            saveContext()
+        }
+    }
+    
+    private func togglePriority(_ item: Item) {
+        withAnimation {
+            item.isPriority.toggle()
+            saveContext()
+        }
     }
     
     private func startEditing(_ item: Item) {
@@ -157,9 +188,9 @@ struct ListView: View {
         saveContext()
     }
     
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteItem(_ item: Item) {
         withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
+            viewContext.delete(item)
             saveContext()
         }
     }
@@ -174,7 +205,7 @@ struct ListView: View {
     }
 }
 
-// Separate row component for better organization
+// Updated TaskRow to show priority status
 struct TaskRow: View {
     let item: Item
     let isEditing: Bool
@@ -187,7 +218,7 @@ struct TaskRow: View {
     @State private var text: String = ""
     
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             // Checkbox
             Button(action: onToggleComplete) {
                 Image(systemName: item.isCompleted ? "checkmark.square" : "square")
@@ -196,6 +227,13 @@ struct TaskRow: View {
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(BorderlessButtonStyle())
+            
+            // Priority flag (if prioritized)
+            if item.isPriority {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 14))
+            }
             
             // Task content - either text field or text
             if isEditing {
@@ -230,6 +268,13 @@ struct TaskRow: View {
                     }
             }
         }
+        .padding(.horizontal, 4)
+        .background(
+            item.isPriority ?
+                Color.orange.opacity(0.1) :
+                Color.clear
+        )
+        .cornerRadius(6)
     }
     
     private func deleteEmptyItem() {
