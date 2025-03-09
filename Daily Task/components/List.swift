@@ -68,6 +68,7 @@ struct ListView: View {
                     List {
                         ForEach(items) { item in
                             TaskRow(
+                                useBulletPoints: taskList.useBulletPoints,
                                 item: item,
                                 isEditing: editingItemID == item.id,
                                 focusedField: $focusedField,
@@ -316,6 +317,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 // Updated TaskRow to show priority status
 struct TaskRow: View {
+    let useBulletPoints: Bool
     let item: Item
     let isEditing: Bool
     var focusedField: FocusState<UUID?>.Binding
@@ -329,13 +331,16 @@ struct TaskRow: View {
     var body: some View {
         HStack(spacing: 8) {
             // Checkbox
-            Button(action: onToggleComplete) {
-                Image(systemName: item.isCompleted ? "checkmark.circle" : "circle")
-                    .foregroundColor(item.isCompleted ? .green : .primary)
-                    .font(.system(size: 20))
-                    .frame(width: 32, height: 32)
+            if useBulletPoints{
+                Button(action: onToggleComplete) {
+                    Image(systemName: item.isCompleted ? "checkmark.circle" : "circle")
+                        .foregroundColor(item.isCompleted ? .green : .primary)
+                        .font(.system(size: 20))
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                
             }
-            .buttonStyle(BorderlessButtonStyle())
             
             // Task content - either text field or text
             if isEditing {

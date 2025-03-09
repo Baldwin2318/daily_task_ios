@@ -63,9 +63,8 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingNewListPrompt) {
             NewListView(
                 isPresented: $isShowingNewListPrompt,
-                createList: { name in
-                    addTaskList(withName: name)
-                    
+                createList: { name, useBulletPoints in
+                    addTaskList(withName: name, useBulletPoints: useBulletPoints)
                 }
             )
         }
@@ -73,7 +72,7 @@ struct ContentView: View {
     
     
     // Modify your addTaskList function to accept a name
-    private func addTaskList(withName name: String) {
+    private func addTaskList(withName name: String, useBulletPoints: Bool = true) {
         withAnimation(.bouncy(duration: 0.5)) {
             var finalName = name
             
@@ -87,6 +86,7 @@ struct ContentView: View {
             // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
             newList.name = finalName
+            newList.useBulletPoints = useBulletPoints  // Set the bullet point preference
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -177,9 +177,9 @@ struct TaskListsView: View {
             .sheet(isPresented: $isShowingNewListPrompt) {
                 NewListView(
                     isPresented: $isShowingNewListPrompt,
-                    createList: { name in
-                        addTaskList(withName: name)
-                        dismiss()
+                    createList: { name, useBulletPoints in
+                        addTaskList(withName: name, useBulletPoints: useBulletPoints)
+                        dismiss()  // In TaskListsView only
                     }
                 )
             }
@@ -204,8 +204,7 @@ struct TaskListsView: View {
         }
     }
     
-    // Modify your addTaskList function to accept a name
-    private func addTaskList(withName name: String) {
+    private func addTaskList(withName name: String, useBulletPoints: Bool = true) {
         withAnimation(.bouncy(duration: 0.5)) {
             var finalName = name
             
@@ -219,6 +218,7 @@ struct TaskListsView: View {
             // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
             newList.name = finalName
+            newList.useBulletPoints = useBulletPoints  // Set the bullet point preference
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -230,10 +230,12 @@ struct TaskListsView: View {
 }
 struct NewListView: View {
     @Binding var isPresented: Bool
-    var createList: (String) -> Void
+    var createList: (String, Bool) -> Void  // Updated to include bullet point preference
+    
     
     @State private var listName = ""
-    @State private var selectedSymbol: String? = "✓" 
+    @State private var selectedSymbol: String? = "✓"
+    @State private var useBulletPoints = true  // Default to true
     @FocusState private var isNameFieldFocused: Bool
     
     // Define available symbols - you can customize this list
@@ -249,6 +251,9 @@ struct NewListView: View {
                 Section(header: Text("List Details")) {
                     TextField("List Name", text: $listName)
                         .focused($isNameFieldFocused)
+                        
+                    Toggle("Use Bullet Points", isOn: $useBulletPoints)
+                        .toggleStyle(SwitchToggleStyle())
                 }
                 
                 Section(header: Text("Choose an Icon (Optional)")) {
@@ -281,7 +286,7 @@ struct NewListView: View {
                     Button("Create") {
                         if !listName.isEmpty {
                             let finalName = selectedSymbol != nil ? "\(listName) \(selectedSymbol!)" : listName
-                            createList(finalName)
+                            createList(finalName, useBulletPoints)  // Pass both name and bullet point preference
                             isPresented = false
                         }
                     }
@@ -293,6 +298,7 @@ struct NewListView: View {
             }
         }
     }
+    
 }
 #Preview {
     ContentView()
