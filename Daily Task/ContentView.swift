@@ -108,6 +108,11 @@ struct TaskListsView: View {
     
     @State private var isShowingNewListPrompt = false
     @State private var newListName = ""
+    
+    // Add state variables for delete confirmation
+    @State private var showingDeleteAlert = false
+    @State private var listToDelete: TaskList? = nil
+
 
     // Define grid columns (two columns in this example)
     let columns = [
@@ -155,8 +160,8 @@ struct TaskListsView: View {
                                 editingList = list
                             }
                             Button("Delete", role: .destructive) {
-                                viewContext.delete(list)
-                                saveChanges()
+                                listToDelete = list
+                                showingDeleteAlert = true
                             }
                         }
                     }
@@ -184,6 +189,15 @@ struct TaskListsView: View {
                         dismiss()
                     }
                 )
+            }
+            .alert("Delete List", isPresented: $showingDeleteAlert, presenting: listToDelete) { list in
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    viewContext.delete(list)
+                    saveChanges()
+                }
+            } message: { list in
+                Text("Are you sure you want to delete '\(list.name ?? "Unnamed List")'? This action cannot be undone.")
             }
         }
     }
@@ -233,13 +247,12 @@ struct TaskListsView: View {
     private func getThemeColor(_ themeKey: String) -> Color {
         // Define the same theme colors as in NewListView
         let themes = [
-            "default": Color.clear,
+            "default": Color.gray.opacity(0.1),
             "blue": Color.blue.opacity(0.1),
             "green": Color.green.opacity(0.1),
             "pink": Color.pink.opacity(0.1),
             "purple": Color.purple.opacity(0.1),
-            "yellow": Color.yellow.opacity(0.1),
-            "gray": Color.gray.opacity(0.1)
+            "yellow": Color.yellow.opacity(0.1)
         ]
         
         return themes[themeKey] ?? Color.white
@@ -252,7 +265,7 @@ struct NewListView: View {
     @State private var listName = ""
     @State private var selectedSymbol: String? = "✓"
     @State private var useBulletPoints = true
-    @State private var selectedTheme = "default"
+    @State private var selectedTheme = "gray"
     @FocusState private var isNameFieldFocused: Bool
     
     // Define available symbols
@@ -271,7 +284,6 @@ struct NewListView: View {
             "pink": Color.pink.opacity(0.1),
             "purple": Color.purple.opacity(0.1),
             "yellow": Color.yellow.opacity(0.1),
-            "gray": Color.gray.opacity(0.1)
         ]
     }
     
@@ -283,7 +295,6 @@ struct NewListView: View {
             "pink": "Soft Pink",
             "purple": "Lavender",
             "yellow": "Sunshine",
-            "gray": "Neutral Gray"
         ]
     }
     

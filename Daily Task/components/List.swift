@@ -185,8 +185,7 @@ struct ListView: View {
             "green": Color.green.opacity(0.1),
             "pink": Color.pink.opacity(0.1),
             "purple": Color.purple.opacity(0.1),
-            "yellow": Color.yellow.opacity(0.1),
-            "gray": Color.gray.opacity(0.1)
+            "yellow": Color.yellow.opacity(0.1)
         ]
         
         return themes[themeKey] ?? Color.clear
@@ -201,7 +200,6 @@ struct ListView: View {
             "pink": Color.pink,
             "purple": Color.purple,
             "yellow": Color.yellow,
-            "gray": Color.gray
         ]
         
         return themes[themeKey] ?? Color.blue
