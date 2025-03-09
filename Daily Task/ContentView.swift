@@ -265,7 +265,7 @@ struct NewListView: View {
     @State private var listName = ""
     @State private var selectedSymbol: String? = "✓"
     @State private var useBulletPoints = true
-    @State private var selectedTheme = "gray"
+    @State private var selectedTheme = "default"
     @FocusState private var isNameFieldFocused: Bool
     
     // Define available symbols
