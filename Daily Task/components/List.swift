@@ -136,6 +136,34 @@ struct ListView: View {
             }
         }
         .navigationTitle(taskList.name ?? "Checklist")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+//                    Button(action: {
+//                        showingCompletedTasksSheet = true
+//                    }) {
+//                        Label("View Completed Tasks", systemImage: "checkmark.circle")
+//                    }
+//                    
+//                    Button(action: {
+//                        // Reset priorities
+//                        resetAllPriorities()
+//                    }) {
+//                        Label("Reset Priorities", systemImage: "flag.slash")
+//                    }
+                    
+                    Button(role: .destructive, action: {
+                        // Delete all completed tasks
+                        deleteCompletedTasks()
+                    }) {
+                        Label("Delete Completed", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 18))
+                }
+            }
+        }
         .sheet(isPresented: $showingCompletedTasksSheet) {
             CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
         }
@@ -201,6 +229,27 @@ struct ListView: View {
             print("Unresolved error saving context: \(nsError), \(nsError.userInfo)")
         }
     }
+    
+    private func resetAllPriorities() {
+          withAnimation {
+              for item in items {
+                  if item.isPriority {
+                      item.isPriority = false
+                  }
+              }
+              saveContext()
+          }
+      }
+      
+      private func deleteCompletedTasks() {
+          withAnimation {
+              let completedItems = items.filter { $0.isCompleted }
+              for item in completedItems {
+                  viewContext.delete(item)
+              }
+              saveContext()
+          }
+      }
 }
 
 // Updated TaskRow to show priority status
@@ -219,23 +268,17 @@ struct TaskRow: View {
         HStack(spacing: 8) {
             // Checkbox
             Button(action: onToggleComplete) {
-                Image(systemName: item.isCompleted ? "checkmark.square" : "square")
+                Image(systemName: item.isCompleted ? "checkmark.circle" : "circle")
                     .foregroundColor(item.isCompleted ? .green : .primary)
                     .font(.system(size: 20))
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(BorderlessButtonStyle())
             
-            // Priority flag (if prioritized)
-            if item.isPriority {
-                Image(systemName: "flag.fill")
-                    .foregroundColor(.orange)
-                    .font(.system(size: 14))
-            }
-            
             // Task content - either text field or text
             if isEditing {
                 TextField("Enter task", text: $text)
+                    .font(.system(size: 20))
                     .padding(.vertical, 8)
                     .focused(focusedField, equals: item.id)
                     .onAppear {
@@ -254,6 +297,7 @@ struct TaskRow: View {
                     }
             } else {
                 Text(item.text ?? "New Task")
+                    .font(.system(size: 20))
                     .strikethrough(item.isCompleted, color: .black)
                     .foregroundColor(item.isCompleted ? .gray : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -265,6 +309,14 @@ struct TaskRow: View {
                         }
                     }
             }
+            
+            // Priority flag (if prioritized)
+            if item.isPriority {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 14))
+            }
+            
         }
         .padding(.horizontal, 4)
         .background(
