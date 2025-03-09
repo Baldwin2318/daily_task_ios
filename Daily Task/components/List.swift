@@ -11,13 +11,12 @@ import CoreData
 struct ListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     
-    var taskList: TaskList  // Pass in the specific list
+    var taskList: TaskList
     
     @FetchRequest var items: FetchedResults<Item>
     
     init(taskList: TaskList) {
         self.taskList = taskList
-        // Filter tasks for the given list
         _items = FetchRequest<Item>(
             sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
             predicate: NSPredicate(format: "list == %@", taskList),
@@ -25,182 +24,137 @@ struct ListView: View {
         )
     }
     
-    
-    @State private var newItemText: String = ""
-    @State private var showingAddItemSheet = false
-    @State private var showingCompletedTasksSheet = false // State for completed tasks sheet
+    @State private var showingCompletedTasksSheet = false
     @State private var checkboxTapped = false
     
-    // Use this state to track the focused item so that new tasks can become active automatically.
-    @FocusState private var focusedItem: Item?
+    // Focus state for editing
+    @FocusState private var focusedField: UUID?
+    
+    // Track the item being edited
+    @State private var editingItemID: UUID?
 
     var body: some View {
-        NavigationView {
-            ZStack{
-                if items.isEmpty {
-                    // Show an empty state with an image and message.
-                    VStack(spacing: 16) {
-                        Image(systemName: "list.bullet.clipboard")
-                            .renderingMode(.original)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 80, height: 80)
-                            .foregroundColor(.secondary)
-                        Text("No tasks available.\nTap + to add one!")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(.secondary)
-                        
-                        Button {
-                            addItem() // Create a new item and set focus.
-                        } label: {
-                            Label("", systemImage: "plus")
-                                .font(.system(size: 25))
-                        }
+        ZStack {
+            if items.isEmpty {
+                // Empty state view
+                VStack(spacing: 16) {
+                    Image(systemName: "list.bullet.clipboard")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.secondary)
+                    Text("No tasks available.\nTap + to add one!")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                    
+                    Button {
+                        addNewItem()
+                    } label: {
+                        Label("Add Task", systemImage: "plus")
+                            .font(.headline)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
-                    .onTapGesture {
-                        addItem()
-                    }
-                } else {
+                }
+            } else {
+                // Main list view with tasks
+                VStack {
                     List {
                         ForEach(items) { item in
-                            HStack {
-                                Button(action: {
-                                    checkboxTapped = true
-                                    item.isCompleted.toggle()
+                            TaskRow(
+                                item: item,
+                                isEditing: editingItemID == item.id,
+                                focusedField: $focusedField,
+                                onToggleComplete: { toggleItemComplete(item) },
+                                onStartEditing: { startEditing(item) },
+                                onEditingChanged: { newText in
+                                    item.text = newText
                                     saveContext()
-                                }) {
-                                    Image(systemName: item.isCompleted ? "checkmark.square" : "square")
-                                        .foregroundColor(item.isCompleted ? .green : .primary)
-                                        .simultaneousGesture(TapGesture().onEnded {}) // Prevent tap gesture from interfering
-                                }
-                                .buttonStyle(BorderlessButtonStyle())
-                                
-                                // Show TextField if the item is focused or its text is empty.
-                                if focusedItem == item || (item.text?.isEmpty ?? true) {
-                                    inlineTextField(for: item)
-                                } else {
-                                    Text(item.text ?? "No Text")
-                                        .strikethrough(item.isCompleted, color: .black)
-                                        .foregroundColor(item.isCompleted ? .gray : .primary)
-                                        .onTapGesture {
-                                            // When tapped, set the item as focused so the inline text field appears.
-                                            focusedItem = item
-                                        }
-                                }
-                            }
+                                },
+                                onEndEditing: { endEditing() }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                         }
                         .onDelete(perform: deleteItems)
                     }
-                    .navigationTitle(taskList.name ?? "Checklist")
-//                    .toolbar {
-//                        ToolbarItemGroup(placement: .navigationBarLeading) {
-//                            //                        // Only show the sweep button if there are any completed tasks.
-//                            //                        if items.contains(where: { $0.isCompleted }) {
-//                            //                            Button {
-//                            //                                showingCompletedTasksSheet = true
-//                            //                            } label: {
-//                            //                                Image(systemName: "list.bullet.clipboard")
-//                            //                                    .foregroundColor(.green)
-//                            //                            }
-//                            //                        }
-//                            // Add button is always visible.
-//                            Button {
-//                                addItem() // Create a new item and set focus.
-//                            } label: {
-//                                Label("Add Item", systemImage: "plus")
-//                            }
-//                        }
-//                    }
-                    // Dismiss the keyboard when tapping anywhere in the List background.
-                    .simultaneousGesture(
-                        TapGesture()
-                            .onEnded {
-                                // Only add an item if the tap was NOT on a checkbox
-                                if !checkboxTapped {
-                                    if focusedItem == nil {
-//                                        addItem()
-                                    } else {
-                                        if let item = focusedItem, item.text?.isEmpty ?? true {
-                                            deleteItem(item)
-                                        } else {
-                                            saveContext()
-                                        }
-                                        focusedItem = nil
-                                    }
+                    .listStyle(PlainListStyle())
+                    .background(
+                        // Background tap detector to end editing
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if editingItemID != nil {
+                                    endEditing()
                                 }
-                                checkboxTapped = false // Reset after handling tap
                             }
                     )
                 }
-                // Floating Add Button
-                if focusedItem == nil {
-                    VStack {
+                
+                // floating add button
+                VStack {
+                    Spacer()
+                    HStack {
                         Spacer()
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                addItem()
-                            }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .background(Color.blue)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 5)
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 20)
+                        Button(action: {
+                            addNewItem()
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
                         }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
                     }
                 }
             }
         }
-        // Present the sheet with completed tasks.
+        .navigationTitle(taskList.name ?? "Checklist")
         .sheet(isPresented: $showingCompletedTasksSheet) {
             CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
         }
     }
-
-    @ViewBuilder
-    private func inlineTextField(for item: Item) -> some View {
-        TextField("Enter task", text: Binding(
-            get: { item.text ?? "" },
-            set: { newValue in
-                item.text = newValue
-            }
-        ))
-        .focused($focusedItem, equals: item)
-        .textFieldStyle(RoundedBorderTextFieldStyle())
-        .onSubmit {
-            if item.text?.isEmpty ?? true {
-                deleteItem(item)
-            } else {
-                saveContext()
-            }
-        }
-    }
     
-    private func addItem() {
+    // Add new task and immediately set it for editing
+    private func addNewItem() {
         withAnimation {
             let newItem = Item(context: viewContext)
-            newItem.text = "" // Start with an empty text
+            newItem.id = UUID()
+            newItem.text = ""
             newItem.timestamp = Date()
             newItem.isCompleted = false
-            newItem.list = taskList  // <-- Link new task to the current list
-
+            newItem.list = taskList
+            
             saveContext()
             
-            // Optionally, set focus on the new item for immediate editing.
-            focusedItem = newItem
+            // Set focus to the new item - need a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.editingItemID = newItem.id
+                self.focusedField = newItem.id
+            }
         }
     }
     
-    private func deleteItem(_ item: Item) {
-        withAnimation {
-            viewContext.delete(item)
-            saveContext()
-        }
+    private func toggleItemComplete(_ item: Item) {
+        item.isCompleted.toggle()
+        saveContext()
+    }
+    
+    private func startEditing(_ item: Item) {
+        editingItemID = item.id
+        focusedField = item.id
+    }
+    
+    private func endEditing() {
+        editingItemID = nil
+        focusedField = nil
+        saveContext()
     }
     
     private func deleteItems(offsets: IndexSet) {
@@ -215,18 +169,82 @@ struct ListView: View {
             try viewContext.save()
         } catch {
             let nsError = error as NSError
-            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            print("Unresolved error saving context: \(nsError), \(nsError.userInfo)")
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+// Separate row component for better organization
+struct TaskRow: View {
+    let item: Item
+    let isEditing: Bool
+    var focusedField: FocusState<UUID?>.Binding
+    let onToggleComplete: () -> Void
+    let onStartEditing: () -> Void
+    let onEditingChanged: (String) -> Void
+    let onEndEditing: () -> Void
+    
+    @State private var text: String = ""
+    
+    var body: some View {
+        HStack {
+            // Checkbox
+            Button(action: onToggleComplete) {
+                Image(systemName: item.isCompleted ? "checkmark.square" : "square")
+                    .foregroundColor(item.isCompleted ? .green : .primary)
+                    .font(.system(size: 20))
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(BorderlessButtonStyle())
+            
+            // Task content - either text field or text
+            if isEditing {
+                TextField("Enter task", text: $text)
+                    .padding(.vertical, 8)
+                    .focused(focusedField, equals: item.id)
+                    .onAppear {
+                        text = item.text ?? ""
+                    }
+                    .onChange(of: text) { newValue in
+                        onEditingChanged(newValue)
+                    }
+                    .onSubmit {
+                        if text.isEmpty {
+                            // Delete empty tasks
+                            deleteEmptyItem()
+                        } else {
+                            onEndEditing()
+                        }
+                    }
+            } else {
+                Text(item.text ?? "New Task")
+                    .strikethrough(item.isCompleted, color: .black)
+                    .foregroundColor(item.isCompleted ? .gray : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if !item.isCompleted {
+                            onStartEditing()
+                        }
+                    }
+            }
+        }
+    }
+    
+    private func deleteEmptyItem() {
+        if let context = item.managedObjectContext {
+            context.delete(item)
+            do {
+                try context.save()
+            } catch {
+                print("Error deleting empty item: \(error)")
+            }
+        }
+    }
+}
 
+// Keep the CompletedTasksSheet unchanged
 struct CompletedTasksSheet: View {
     let completedTasks: [Item]
     @Environment(\.dismiss) private var dismiss
@@ -237,7 +255,6 @@ struct CompletedTasksSheet: View {
             List {
                 ForEach(completedTasks) { task in
                     HStack {
-                        // Static checkbox image (non-interactive)
                         Image(systemName: "checkmark.square")
                             .foregroundColor(.green)
                         Text(task.text ?? "No Text")
@@ -248,13 +265,6 @@ struct CompletedTasksSheet: View {
             }
             .navigationTitle("Completed Tasks")
             .toolbar {
-                // Close button.
-//                ToolbarItem(placement: .cancellationAction) {
-//                    Button("Close") {
-//                        dismiss()
-//                    }
-//                }
-                // Circular CLEAN button.
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         cleanCompletedTasks()
@@ -270,20 +280,14 @@ struct CompletedTasksSheet: View {
     
     private func cleanCompletedTasks() {
         withAnimation {
-            // Iterate over the completedTasks passed in and delete each one.
             for task in completedTasks {
                 viewContext.delete(task)
             }
             do {
                 try viewContext.save()
             } catch {
-                // Handle the error appropriately in your app.
                 print("Error cleaning tasks: \(error.localizedDescription)")
             }
         }
     }
 }
-//
-//#Preview {
-//    ListView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-//}
