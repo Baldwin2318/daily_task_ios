@@ -13,6 +13,9 @@ struct ContentView: View {
     @State private var selectedTaskList: TaskList?
     @State private var showingListsSheet = true
     
+    @State private var isShowingNewListPrompt = false
+    @State private var newListName = ""
+    
     var body: some View {
         NavigationView {
             if let list = selectedTaskList ?? taskLists.first {
@@ -51,28 +54,39 @@ struct ContentView: View {
 
                     Text("No lists available.")
                     Button("Create Default List") {
-                        addTaskList()
+                        newListName = ""
+                        isShowingNewListPrompt = true
                     }
                 }
             }
         }
+        .sheet(isPresented: $isShowingNewListPrompt) {
+            NewListView(
+                isPresented: $isShowingNewListPrompt,
+                createList: { name in
+                    addTaskList(withName: name)
+                    
+                }
+            )
+        }
     }
     
-    private func addTaskList() {
+    
+    // Modify your addTaskList function to accept a name
+    private func addTaskList(withName name: String) {
         withAnimation(.bouncy(duration: 0.5)) {
-            // Start with a candidate number.
-            var candidateNumber = taskLists.count + 1
-            var candidateName = "List \(candidateNumber)"
+            var finalName = name
             
-            // Loop until we find a name that isn't taken.
-            while taskLists.contains(where: { $0.name == candidateName }) {
-                candidateNumber += 1
-                candidateName = "List \(candidateNumber)"
+            // Ensure the name is unique
+            var counter = 1
+            while taskLists.contains(where: { $0.name == finalName }) {
+                counter += 1
+                finalName = "\(name) \(counter)"
             }
             
-            // Create the new list with the unique candidate name.
+            // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
-            newList.name = candidateName
+            newList.name = finalName
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -91,6 +105,9 @@ struct TaskListsView: View {
 
     // Track which list is currently being renamed.
     @State private var editingList: TaskList? = nil
+    
+    @State private var isShowingNewListPrompt = false
+    @State private var newListName = ""
 
     // Define grid columns (two columns in this example)
     let columns = [
@@ -149,12 +166,22 @@ struct TaskListsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     // Button to add a new list
                     Button(action: {
-                        addTaskList()
-                        dismiss()
+                        newListName = ""
+                        isShowingNewListPrompt = true
                     }) {
                         Image(systemName: "square.and.pencil")
                     }
+
                 }
+            }
+            .sheet(isPresented: $isShowingNewListPrompt) {
+                NewListView(
+                    isPresented: $isShowingNewListPrompt,
+                    createList: { name in
+                        addTaskList(withName: name)
+                        dismiss()
+                    }
+                )
             }
         }
     }
@@ -177,21 +204,21 @@ struct TaskListsView: View {
         }
     }
     
-    private func addTaskList() {
+    // Modify your addTaskList function to accept a name
+    private func addTaskList(withName name: String) {
         withAnimation(.bouncy(duration: 0.5)) {
-            // Start with a candidate number.
-            var candidateNumber = taskLists.count + 1
-            var candidateName = "New List \(candidateNumber)"
+            var finalName = name
             
-            // Loop until we find a name that isn't taken.
-            while taskLists.contains(where: { $0.name == candidateName }) {
-                candidateNumber += 1
-                candidateName = "New List \(candidateNumber)"
+            // Ensure the name is unique
+            var counter = 1
+            while taskLists.contains(where: { $0.name == finalName }) {
+                counter += 1
+                finalName = "\(name) \(counter)"
             }
             
-            // Create the new list with the unique candidate name.
+            // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
-            newList.name = candidateName
+            newList.name = finalName
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -201,7 +228,72 @@ struct TaskListsView: View {
         }
     }
 }
-
+struct NewListView: View {
+    @Binding var isPresented: Bool
+    var createList: (String) -> Void
+    
+    @State private var listName = ""
+    @State private var selectedSymbol: String? = "✓" 
+    @FocusState private var isNameFieldFocused: Bool
+    
+    // Define available symbols - you can customize this list
+    let availableSymbols = [
+        "🥕", "🍎", "🥦", "🛒", "🍞", "🥚", "🥩", "🧀", "🍗", "🍌",
+        "🏠", "💼", "📚", "🎮", "🎬", "✈️", "🔨", "💪", "🎁", "❤️",
+        "💻","⚙️","🇯🇵","🇵🇭","🇨🇦","☀️","✨","⭐️","🌈"
+    ]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("List Details")) {
+                    TextField("List Name", text: $listName)
+                        .focused($isNameFieldFocused)
+                }
+                
+                Section(header: Text("Choose an Icon (Optional)")) {
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 44))
+                    ], spacing: 10) {
+                        ForEach(availableSymbols, id: \.self) { symbol in
+                            Text(symbol)
+                                .font(.title)
+                                .frame(width: 44, height: 44)
+                                .background(selectedSymbol == symbol ? Color.blue.opacity(0.2) : Color.clear)
+                                .cornerRadius(8)
+                                .onTapGesture {
+                                    selectedSymbol = symbol
+                                }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("New List")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        if !listName.isEmpty {
+                            let finalName = selectedSymbol != nil ? "\(listName) \(selectedSymbol!)" : listName
+                            createList(finalName)
+                            isPresented = false
+                        }
+                    }
+                    .disabled(listName.isEmpty)
+                }
+            }
+            .onAppear {
+                isNameFieldFocused = true
+            }
+        }
+    }
+}
 #Preview {
     ContentView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
