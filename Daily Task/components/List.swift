@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import UIKit
 
 struct ListView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -30,10 +31,11 @@ struct ListView: View {
     
     @State private var showingCompletedTasksSheet = false
     @State private var checkboxTapped = false
+    @State private var isSharePresented = false
     
     @FocusState private var focusedField: UUID?
     @State private var editingItemID: UUID?
-
+    
     var body: some View {
         ZStack {
             if items.isEmpty {
@@ -139,18 +141,18 @@ struct ListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-//                    Button(action: {
-//                        showingCompletedTasksSheet = true
-//                    }) {
-//                        Label("View Completed Tasks", systemImage: "checkmark.circle")
-//                    }
-//                    
-//                    Button(action: {
-//                        // Reset priorities
-//                        resetAllPriorities()
-//                    }) {
-//                        Label("Reset Priorities", systemImage: "flag.slash")
-//                    }
+                    Button(action: {
+                        shareList()
+                    }) {
+                        Label("Copy & Share List", systemImage: "doc.on.doc")
+                    }
+                    
+                    Button(action: {
+                        // Reset priorities
+                        resetAllPriorities()
+                    }) {
+                        Label("Reset Priorities", systemImage: "flag.slash")
+                    }
                     
                     Button(role: .destructive, action: {
                         // Delete all completed tasks
@@ -167,6 +169,52 @@ struct ListView: View {
         .sheet(isPresented: $showingCompletedTasksSheet) {
             CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
         }
+        .sheet(isPresented: $isSharePresented) {
+            ShareSheet(items: [generateShareText()])
+        }
+    }
+    
+    private func shareList() {
+        // Share list immediately without needing to capture an image
+        self.isSharePresented = true
+    }
+    
+    // Generate a text representation of the list for sharing
+    private func generateShareText() -> String {
+        let title = taskList.name ?? "Checklist"
+        var shareText = "\(title):\n"
+        
+        let priorityItems = items.filter { $0.isPriority && !$0.isCompleted }
+        let regularItems = items.filter { !$0.isPriority && !$0.isCompleted }
+        let completedItems = items.filter { $0.isCompleted }
+        
+        // Add priority tasks
+        if !priorityItems.isEmpty {
+            shareText += "PRIORITY TASKS ⭐️:\n"
+            for item in priorityItems {
+                shareText += "• \(item.text ?? "Task")\n"
+            }
+            shareText += "\n"
+        }
+        
+        // Add regular tasks
+        if !regularItems.isEmpty {
+//            shareText += "TASKS:\n"
+            for item in regularItems {
+                shareText += "• \(item.text ?? "Task")\n"
+            }
+            shareText += "\n"
+        }
+        
+        // Add completed tasks
+        if !completedItems.isEmpty {
+            shareText += "COMPLETED ✅ :\n"
+            for item in completedItems {
+                shareText += "• \(item.text ?? "Task")\n"
+            }
+        }
+        
+        return shareText
     }
     
     private func addNewItem() {
@@ -231,25 +279,39 @@ struct ListView: View {
     }
     
     private func resetAllPriorities() {
-          withAnimation {
-              for item in items {
-                  if item.isPriority {
-                      item.isPriority = false
-                  }
-              }
-              saveContext()
-          }
-      }
+        withAnimation {
+            for item in items {
+                if item.isPriority {
+                    item.isPriority = false
+                }
+            }
+            saveContext()
+        }
+    }
       
-      private func deleteCompletedTasks() {
-          withAnimation {
-              let completedItems = items.filter { $0.isCompleted }
-              for item in completedItems {
-                  viewContext.delete(item)
-              }
-              saveContext()
-          }
-      }
+    private func deleteCompletedTasks() {
+        withAnimation {
+            let completedItems = items.filter { $0.isCompleted }
+            for item in completedItems {
+                viewContext.delete(item)
+            }
+            saveContext()
+        }
+    }
+}
+
+// ShareSheet to present the UIActivityViewController
+struct ShareSheet: UIViewControllerRepresentable {
+    var items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // Nothing to do here
+    }
 }
 
 // Updated TaskRow to show priority status
