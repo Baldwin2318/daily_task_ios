@@ -113,26 +113,24 @@ struct ListView: View {
                     )
                 }
                 
-                // Add button (only show when not editing)
-                if editingItemID == nil {
-                    VStack {
+                // floating add button to be visible all the time
+                VStack {
+                    Spacer()
+                    HStack {
                         Spacer()
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                addNewItem()
-                            }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-                                    .frame(width: 50, height: 50)
-                                    .background(Color.blue)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 4)
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 20)
+                        Button(action: {
+                            addNewItem()
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
                         }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
                     }
                 }
             }
