@@ -18,7 +18,6 @@ struct ContentView: View {
             if let list = selectedTaskList ?? taskLists.first {
                 // Show the tasks for the currently selected list.
                 ListView(taskList: list)
-                    .navigationTitle(list.name ?? "List")
                     .toolbar {
                         ToolbarItemGroup(placement: .navigationBarTrailing) {
                             // Button to view all lists (square grid)
@@ -182,12 +181,12 @@ struct TaskListsView: View {
         withAnimation(.bouncy(duration: 0.5)) {
             // Start with a candidate number.
             var candidateNumber = taskLists.count + 1
-            var candidateName = "List \(candidateNumber)"
+            var candidateName = "New List \(candidateNumber)"
             
             // Loop until we find a name that isn't taken.
             while taskLists.contains(where: { $0.name == candidateName }) {
                 candidateNumber += 1
-                candidateName = "List \(candidateNumber)"
+                candidateName = "New List \(candidateNumber)"
             }
             
             // Create the new list with the unique candidate name.
