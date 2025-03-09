@@ -63,16 +63,15 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingNewListPrompt) {
             NewListView(
                 isPresented: $isShowingNewListPrompt,
-                createList: { name, useBulletPoints in
-                    addTaskList(withName: name, useBulletPoints: useBulletPoints)
+                createList: { name, useBulletPoints, theme in
+                    addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
                 }
             )
         }
     }
     
     
-    // Modify your addTaskList function to accept a name
-    private func addTaskList(withName name: String, useBulletPoints: Bool = true) {
+    private func addTaskList(withName name: String, useBulletPoints: Bool = true, theme: String = "default") {
         withAnimation(.bouncy(duration: 0.5)) {
             var finalName = name
             
@@ -86,7 +85,8 @@ struct ContentView: View {
             // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
             newList.name = finalName
-            newList.useBulletPoints = useBulletPoints  // Set the bullet point preference
+            newList.useBulletPoints = useBulletPoints
+            newList.theme = theme  // Store the theme
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -124,9 +124,10 @@ struct TaskListsView: View {
                     ForEach(taskLists, id: \.self) { list in
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.blue.opacity(0.1))
+                                .fill(getThemeColor(list.theme ?? "default"))
                             VStack {
                                 if editingList == list {
+                                    // Editing content remains the same
                                     TextField("Rename List", text: Binding(
                                         get: { list.name ?? "" },
                                         set: { list.name = $0 }
@@ -143,6 +144,7 @@ struct TaskListsView: View {
                                 }
                             }
                         }
+
                         .frame(height: 100)
                         .onTapGesture {
                             selectedTaskList = list
@@ -177,9 +179,9 @@ struct TaskListsView: View {
             .sheet(isPresented: $isShowingNewListPrompt) {
                 NewListView(
                     isPresented: $isShowingNewListPrompt,
-                    createList: { name, useBulletPoints in
-                        addTaskList(withName: name, useBulletPoints: useBulletPoints)
-                        dismiss()  // In TaskListsView only
+                    createList: { name, useBulletPoints, theme in
+                        addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
+                        dismiss()
                     }
                 )
             }
@@ -204,7 +206,7 @@ struct TaskListsView: View {
         }
     }
     
-    private func addTaskList(withName name: String, useBulletPoints: Bool = true) {
+    private func addTaskList(withName name: String, useBulletPoints: Bool = true, theme: String = "default") {
         withAnimation(.bouncy(duration: 0.5)) {
             var finalName = name
             
@@ -218,7 +220,8 @@ struct TaskListsView: View {
             // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
             newList.name = finalName
-            newList.useBulletPoints = useBulletPoints  // Set the bullet point preference
+            newList.useBulletPoints = useBulletPoints
+            newList.theme = theme  // Store the theme
             do {
                 try viewContext.save()
                 selectedTaskList = newList
@@ -227,52 +230,77 @@ struct TaskListsView: View {
             }
         }
     }
+    private func getThemeColor(_ themeKey: String) -> Color {
+        // Define the same theme colors as in NewListView
+        let themes = [
+            "default": Color.clear,
+            "blue": Color.blue.opacity(0.1),
+            "green": Color.green.opacity(0.1),
+            "pink": Color.pink.opacity(0.1),
+            "purple": Color.purple.opacity(0.1),
+            "yellow": Color.yellow.opacity(0.1),
+            "gray": Color.gray.opacity(0.1)
+        ]
+        
+        return themes[themeKey] ?? Color.white
+    }
 }
 struct NewListView: View {
     @Binding var isPresented: Bool
-    var createList: (String, Bool) -> Void  // Updated to include bullet point preference
-    
+    var createList: (String, Bool, String) -> Void  // Includes theme
     
     @State private var listName = ""
     @State private var selectedSymbol: String? = "✓"
-    @State private var useBulletPoints = true  // Default to true
+    @State private var useBulletPoints = true
+    @State private var selectedTheme = "default"
     @FocusState private var isNameFieldFocused: Bool
     
-    // Define available symbols - you can customize this list
+    // Define available symbols
     let availableSymbols = [
         "🥕", "🍎", "🥦", "🛒", "🍞", "🥚", "🥩", "🧀", "🍗", "🍌",
         "🏠", "💼", "📚", "🎮", "🎬", "✈️", "🔨", "💪", "🎁", "❤️",
         "💻","⚙️","🇯🇵","🇵🇭","🇨🇦","☀️","✨","⭐️","🌈"
     ]
     
+    // Theme definitions moved to a computed property
+    var themeColors: [String: Color] {
+        [
+            "default": Color.clear,
+            "blue": Color.blue.opacity(0.1),
+            "green": Color.green.opacity(0.1),
+            "pink": Color.pink.opacity(0.1),
+            "purple": Color.purple.opacity(0.1),
+            "yellow": Color.yellow.opacity(0.1),
+            "gray": Color.gray.opacity(0.1)
+        ]
+    }
+    
+    var themeNames: [String: String] {
+        [
+            "default": "Default",
+            "blue": "Sky Blue",
+            "green": "Mint Green",
+            "pink": "Soft Pink",
+            "purple": "Lavender",
+            "yellow": "Sunshine",
+            "gray": "Neutral Gray"
+        ]
+    }
+    
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("List Details")) {
-                    TextField("List Name", text: $listName)
-                        .focused($isNameFieldFocused)
-                        
-                    Toggle("Use Bullet Points", isOn: $useBulletPoints)
-                        .toggleStyle(SwitchToggleStyle())
-                }
+                // List details section
+                listDetailsSection
                 
-                Section(header: Text("Choose an Icon (Optional)")) {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 44))
-                    ], spacing: 10) {
-                        ForEach(availableSymbols, id: \.self) { symbol in
-                            Text(symbol)
-                                .font(.title)
-                                .frame(width: 44, height: 44)
-                                .background(selectedSymbol == symbol ? Color.blue.opacity(0.2) : Color.clear)
-                                .cornerRadius(8)
-                                .onTapGesture {
-                                    selectedSymbol = symbol
-                                }
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
+                // Icon selection section
+                iconSelectionSection
+                
+                // Theme selection section
+                themeSelectionSection
+                
+                // Preview section
+                previewSection
             }
             .navigationTitle("New List")
             .navigationBarTitleDisplayMode(.inline)
@@ -286,7 +314,7 @@ struct NewListView: View {
                     Button("Create") {
                         if !listName.isEmpty {
                             let finalName = selectedSymbol != nil ? "\(listName) \(selectedSymbol!)" : listName
-                            createList(finalName, useBulletPoints)  // Pass both name and bullet point preference
+                            createList(finalName, useBulletPoints, selectedTheme)
                             isPresented = false
                         }
                     }
@@ -299,6 +327,128 @@ struct NewListView: View {
         }
     }
     
+    // MARK: - View Components
+    
+    private var listDetailsSection: some View {
+        Section(header: Text("List Details")) {
+            TextField("List Name", text: $listName)
+                .focused($isNameFieldFocused)
+                
+            Toggle("Use Bullet Points", isOn: $useBulletPoints)
+                .toggleStyle(SwitchToggleStyle())
+        }
+    }
+    
+    private var iconSelectionSection: some View {
+        Section(header: Text("Choose an Icon (Optional)")) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
+                ForEach(availableSymbols, id: \.self) { symbol in
+                    IconView(symbol: symbol, isSelected: selectedSymbol == symbol)
+                        .onTapGesture {
+                            selectedSymbol = symbol
+                        }
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    
+    private var themeSelectionSection: some View {
+        Section(header: Text("Choose a Theme")) {
+            ForEach(Array(themeNames.keys.sorted()), id: \.self) { themeKey in
+                ThemeRowView(
+                    themeKey: themeKey,
+                    themeName: themeNames[themeKey] ?? "",
+                    themeColor: themeColors[themeKey] ?? .white,
+                    isSelected: selectedTheme == themeKey
+                )
+                .onTapGesture {
+                    selectedTheme = themeKey
+                }
+            }
+        }
+    }
+    
+    private var previewSection: some View {
+        Section(header: Text("Preview")) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(themeColors[selectedTheme] ?? .white)
+                    .frame(height: 120)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(listName.isEmpty ? "My List" : listName)
+                        .font(.headline)
+                        .padding(.bottom, 4)
+                    
+                    PreviewTaskRow(useBulletPoints: useBulletPoints, isCompleted: false)
+                    PreviewTaskRow(useBulletPoints: useBulletPoints, isCompleted: true)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 8)
+        }
+    }
+}
+
+// MARK: - Helper Views
+
+struct IconView: View {
+    let symbol: String
+    let isSelected: Bool
+    
+    var body: some View {
+        Text(symbol)
+            .font(.title)
+            .frame(width: 44, height: 44)
+            .background(isSelected ? Color.blue.opacity(0.2) : Color.clear)
+            .cornerRadius(8)
+    }
+}
+
+struct ThemeRowView: View {
+    let themeKey: String
+    let themeName: String
+    let themeColor: Color
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(themeColor)
+                .frame(width: 24, height: 24)
+            
+            Text(themeName)
+                .padding(.leading, 8)
+            
+            Spacer()
+            
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundColor(.blue)
+            }
+        }
+        .contentShape(Rectangle())
+        .padding(.vertical, 4)
+    }
+}
+
+struct PreviewTaskRow: View {
+    let useBulletPoints: Bool
+    let isCompleted: Bool
+    
+    var body: some View {
+        HStack {
+            if useBulletPoints {
+                Image(systemName: isCompleted ? "checkmark.circle" : "circle")
+                    .foregroundColor(isCompleted ? .green : .primary)
+            }
+            Text(isCompleted ? "Sample task 2" : "Sample task 1")
+                .strikethrough(isCompleted)
+                .foregroundColor(isCompleted ? .gray : .primary)
+        }
+    }
 }
 #Preview {
     ContentView()

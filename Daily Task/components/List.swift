@@ -57,7 +57,7 @@ struct ListView: View {
                         Label("Add Task", systemImage: "plus")
                             .font(.headline)
                             .padding()
-                            .background(Color.blue)
+                            .background(getThemeColorAddButton(taskList.theme ?? "default"))
                             .foregroundColor(.white)
                             .cornerRadius(10)
                     }
@@ -81,6 +81,7 @@ struct ListView: View {
                                 onEndEditing: { endEditing() }
                             )
                             .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                            .listRowBackground(getThemeColor(taskList.theme ?? "default"))
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 // Delete action
                                 Button(role: .destructive) {
@@ -115,6 +116,7 @@ struct ListView: View {
                             }
                     )
                 }
+                .background(getThemeColor(taskList.theme ?? "default"))
                 
                 // floating add button to be visible all the time
                 VStack {
@@ -174,7 +176,36 @@ struct ListView: View {
             ShareSheet(items: [generateShareText()])
         }
     }
-    
+    // Add the same helper function to ListView:
+    private func getThemeColor(_ themeKey: String) -> Color {
+        // Define the same theme colors as in NewListView
+        let themes = [
+            "default": Color.clear,
+            "blue": Color.blue.opacity(0.1),
+            "green": Color.green.opacity(0.1),
+            "pink": Color.pink.opacity(0.1),
+            "purple": Color.purple.opacity(0.1),
+            "yellow": Color.yellow.opacity(0.1),
+            "gray": Color.gray.opacity(0.1)
+        ]
+        
+        return themes[themeKey] ?? Color.clear
+    }
+    // Add the same helper function to ListView:
+    private func getThemeColorAddButton(_ themeKey: String) -> Color {
+        // Define the same theme colors as in NewListView
+        let themes = [
+            "default": Color.blue,
+            "blue": Color.blue,
+            "green": Color.green,
+            "pink": Color.pink,
+            "purple": Color.purple,
+            "yellow": Color.yellow,
+            "gray": Color.gray
+        ]
+        
+        return themes[themeKey] ?? Color.blue
+    }
     private func shareList() {
         // Share list immediately without needing to capture an image
         self.isSharePresented = true

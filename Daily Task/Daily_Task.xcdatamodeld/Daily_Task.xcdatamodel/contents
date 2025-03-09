@@ -10,6 +10,7 @@
     </entity>
     <entity name="TaskList" representedClassName=".TaskList" isAbstract="YES" parentEntity="Item" syncable="YES" codeGenerationType="class">
         <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="theme" optional="YES" attributeType="String"/>
         <attribute name="useBulletPoints" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <relationship name="tasks" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Item"/>
     </entity>
