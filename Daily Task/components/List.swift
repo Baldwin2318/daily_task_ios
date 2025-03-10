@@ -30,6 +30,7 @@ struct ListView: View {
     }
     
     @State private var showingCompletedTasksSheet = false
+    @State private var showingScanner = false
     @State private var checkboxTapped = false
     @State private var isSharePresented = false
     
@@ -52,7 +53,9 @@ struct ListView: View {
                         .foregroundColor(.secondary)
                     
                     Button {
-                        addNewItem()
+                        withAnimation(.easeInOut(duration: 1.0)) {
+                            addNewItem()
+                        }
                     } label: {
                         Label("Add Task", systemImage: "plus")
                             .font(.headline)
@@ -124,7 +127,9 @@ struct ListView: View {
                     HStack {
                         Spacer()
                         Button(action: {
-                            addNewItem()
+                            withAnimation(.easeInOut(duration: 1.0)) {
+                                addNewItem()
+                            }
                         }) {
                             Image(systemName: "plus")
                                 .font(.system(size: 20))
@@ -148,6 +153,13 @@ struct ListView: View {
                         shareList()
                     }) {
                         Label("Copy & Share List", systemImage: "doc.on.doc")
+                    }
+                    
+                    // New scanner menu item
+                    Button(action: {
+                        showingScanner.toggle()
+                    }) {
+                        Label("Scan Document", systemImage: "doc.text.viewfinder")
                     }
                     
                     Button(action: {
@@ -174,6 +186,19 @@ struct ListView: View {
         }
         .sheet(isPresented: $isSharePresented) {
             ShareSheet(items: [generateShareText()])
+        }
+        .sheet(isPresented: $showingScanner) {
+            DocumentScannerView { scannedTexts in
+                // Process the recognized texts.
+                // For example, split each string into lines if needed and add them as tasks.
+                for text in scannedTexts {
+                    // Optionally, you can further split text by newlines if one scanned result contains multiple tasks.
+                    let tasks = text.components(separatedBy: "\n").filter { !$0.isEmpty }
+                    for task in tasks {
+                        addScannedTask(text: task)
+                    }
+                }
+            }
         }
     }
     // Add the same helper function to ListView:
@@ -325,6 +350,19 @@ struct ListView: View {
             for item in completedItems {
                 viewContext.delete(item)
             }
+            saveContext()
+        }
+    }
+    private func addScannedTask(text: String) {
+        withAnimation {
+            let newItem = Item(context: viewContext)
+            newItem.id = UUID()
+            newItem.text = text
+            newItem.timestamp = Date()
+            newItem.isCompleted = false
+            newItem.isPriority = false
+            newItem.list = taskList
+            
             saveContext()
         }
     }
