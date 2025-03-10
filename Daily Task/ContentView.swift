@@ -107,6 +107,7 @@ struct TaskListsView: View {
     @State private var editingList: TaskList? = nil
     
     @State private var isShowingNewListPrompt = false
+    @State private var isShowingEditListPrompt = false
     @State private var newListName = ""
     
     // State variables for delete confirmation (single deletion)
@@ -250,11 +251,17 @@ struct TaskListsView: View {
                         dismiss()
                     }
                 )
-            }
+            }// In TaskListsView:
             .sheet(item: $editingTaskList) { list in
-                // Present EditListView. Make sure TaskList conforms to Identifiable.
-                EditListView(isPresented: .constant(true), list: list) { updatedList, newName, newBullet, newTheme in
-                    // Update the list with the new details.
+                EditListView(
+                    isPresented: Binding(
+                        get: { editingTaskList != nil },
+                        set: { newValue in
+                            if !newValue { editingTaskList = nil }
+                        }
+                    ),
+                    list: list
+                ) { updatedList, newName, newBullet, newTheme in
                     updatedList.name = newName
                     updatedList.useBulletPoints = newBullet
                     updatedList.theme = newTheme
@@ -263,6 +270,8 @@ struct TaskListsView: View {
                     } catch {
                         print("Error updating list: \(error.localizedDescription)")
                     }
+                    // Dismiss the sheet by clearing the editing item.
+                    editingTaskList = nil
                 }
             }
             .alert(isPresented: $showingDeleteAlert) {
@@ -444,9 +453,9 @@ struct NewListView: View {
         Section(header: Text("Choose an Icon (Optional)")) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
                 ForEach(availableSymbols, id: \.self) { symbol in
-                    IconView(symbol: symbol, isSelected: selectedSymbol == symbol)
+                    IconView(symbol: symbol, isSelected: false)
                         .onTapGesture {
-                            selectedSymbol = symbol
+                            listName.append(symbol)
                         }
                 }
             }
@@ -532,7 +541,7 @@ struct EditListView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        isPresented = false
+                        isPresented = false  // Dismisses the sheet
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -559,7 +568,7 @@ struct EditListView: View {
                 .toggleStyle(SwitchToggleStyle())
         }
     }
-
+    
     private var iconSelectionSection: some View {
         Section(header: Text("Choose an Icon (Optional)")) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
@@ -568,9 +577,9 @@ struct EditListView: View {
                     "🏠", "💼", "📚", "🎮", "🎬", "✈️", "🔨", "💪", "🎁", "❤️",
                     "💻","⚙️","🇯🇵","🇵🇭","🇨🇦","☀️","✨","⭐️","🌈"
                 ], id: \.self) { symbol in
-                    IconView(symbol: symbol, isSelected: selectedSymbol == symbol)
+                    IconView(symbol: symbol, isSelected: false)
                         .onTapGesture {
-                            selectedSymbol = symbol
+                            listName.append(symbol)
                         }
                 }
             }
