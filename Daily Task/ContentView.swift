@@ -126,6 +126,20 @@ struct TaskListsView: View {
         NavigationView {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 16) {
+                    Button(action: {
+                        isShowingNewListPrompt = true
+                    }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [5]))
+                                .foregroundColor(.gray)
+                            Image(systemName: "plus")
+                                .font(.system(size: 40))
+                                .foregroundColor(.gray)
+                        }
+                        .frame(height: 100)
+                    }
+                    
                     ForEach(taskLists, id: \.self) { list in
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
@@ -170,16 +184,16 @@ struct TaskListsView: View {
             }
             .navigationTitle("Task Lists")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    // Button to add a new list
-                    Button(action: {
-                        newListName = ""
-                        isShowingNewListPrompt = true
-                    }) {
-                        Image(systemName: "square.and.pencil")
-                    }
-
-                }
+//                ToolbarItem(placement: .navigationBarTrailing) {
+//                    // Button to add a new list
+//                    Button(action: {
+//                        newListName = ""
+//                        isShowingNewListPrompt = true
+//                    }) {
+//                        Image(systemName: "square.and.pencil")
+//                    }
+//
+//                }
             }
             .sheet(isPresented: $isShowingNewListPrompt) {
                 NewListView(
