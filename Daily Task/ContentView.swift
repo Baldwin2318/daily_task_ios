@@ -102,9 +102,6 @@ struct TaskListsView: View {
     var taskLists: FetchedResults<TaskList>
     @Binding var selectedTaskList: TaskList?
     @Environment(\.dismiss) private var dismiss
-
-    // Track which list is currently being renamed.
-    @State private var editingList: TaskList? = nil
     
     @State private var isShowingNewListPrompt = false
     @State private var isShowingEditListPrompt = false
@@ -152,22 +149,9 @@ struct TaskListsView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(getThemeColor(list.theme ?? "default"))
                             VStack {
-                                if editingList == list {
-                                    // Editing content remains the same
-                                    TextField("Rename List", text: Binding(
-                                        get: { list.name ?? "" },
-                                        set: { list.name = $0 }
-                                    ))
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .onSubmit {
-                                        saveChanges()
-                                        editingList = nil
-                                    }
-                                } else {
-                                    Text(list.name ?? "Unnamed List")
-                                        .font(.headline)
-                                        .padding()
-                                }
+                                Text(list.name ?? "Unnamed List")
+                                    .font(.headline)
+                                    .padding()
                             }
                             // If in selection mode, overlay a checkmark indicator:
                             if isSelectionMode {
@@ -202,9 +186,6 @@ struct TaskListsView: View {
                             if !isSelectionMode {
                                 Button("Edit") {
                                     editingTaskList = list
-                                }
-                                Button("Rename") {
-                                    editingList = list
                                 }
                                 Button("Delete", role: .destructive) {
                                     listToDelete = list
