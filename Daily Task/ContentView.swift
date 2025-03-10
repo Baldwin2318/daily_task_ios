@@ -343,7 +343,7 @@ struct NewListView: View {
     var createList: (String, Bool, String) -> Void  // Includes theme
     
     @State private var listName = ""
-    @State private var selectedSymbol: String? = "✓"
+    @State private var selectedSymbol: String? = ""
     @State private var useBulletPoints = true
     @State private var selectedTheme = "default"
     @FocusState private var isNameFieldFocused: Bool
