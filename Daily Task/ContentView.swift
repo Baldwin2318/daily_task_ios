@@ -3,96 +3,195 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    
-    // Fetch TaskList objects sorted by name.
+
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \TaskList.name, ascending: true)],
         animation: .default)
     private var taskLists: FetchedResults<TaskList>
-    
-    @State private var selectedTaskList: TaskList?
-    @State private var showingListsSheet = true
-    
+
+    // State for presenting sheets
     @State private var isShowingNewListPrompt = false
-    @State private var newListName = ""
-    
+    @State private var editingTaskList: TaskList? = nil
+
+    // Define grid columns for a two-column layout
+    let columns = [
+        GridItem(.flexible(), spacing: 16),
+        GridItem(.flexible(), spacing: 16)
+    ]
+
     var body: some View {
         NavigationView {
-            if let list = selectedTaskList ?? taskLists.first {
-                // Show the tasks for the currently selected list.
-                ListView(taskList: list)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-                            // Button to view all lists (square grid)
-                            Button(action: {
-                                showingListsSheet = true
-                            }) {
-                                Image(systemName: "square.grid.2x2")
-                            }
-                        }
-//                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-//                            // Button to add a new list (pencil in box)
-//                            Button(action: {
-//                                addTaskList()
-//                            }) {
-//                                Image(systemName: "square.and.pencil")
-//                            }
-//                        }
-                    }
-                    .sheet(isPresented: $showingListsSheet) {
-                        TaskListsView(taskLists: taskLists, selectedTaskList: $selectedTaskList)
-                            .interactiveDismissDisabled(true)
-                    }
-            } else {
-                // If no TaskList exists, provide a button to create one.
-                VStack(spacing: 16) {
-                    Image(systemName: "tray.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 80, height: 80)
-                        .foregroundColor(.secondary)
-
-                    Text("No lists available.")
-                    Button("Create Default List") {
-                        newListName = ""
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    // New List Card
+                    NewListCard {
                         isShowingNewListPrompt = true
                     }
+                    
+                    // Existing List Cards
+                    ForEach(taskLists, id: \.self) { list in
+                        NavigationLink(destination: ListView(taskList: list)) {
+                            TaskListCard(list: list, themeColor: getThemeColor(for: list.theme ?? "default"))
+                        }
+                        .contextMenu {
+                            Button {
+                                editingTaskList = list
+                                
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                delete(list: list)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("My Lists")
+//            .navigationBarTitleDisplayMode(.inline) // This line forces the inline display mode.
+//            .toolbar {
+//                ToolbarItem(placement: .navigationBarTrailing) {
+//                    Button(action: {
+//                        isShowingNewListPrompt = true
+//                    }) {
+//                        Image(systemName: "plus")
+//                    }
+//                }
+//            }
+            .sheet(isPresented: $isShowingNewListPrompt) {
+                NewListView(isPresented: $isShowingNewListPrompt) { name, useBulletPoints, theme in
+                    addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
+                }
+            }
+            .sheet(item: $editingTaskList) { list in
+                EditListView(
+                    isPresented: Binding(
+                        get: { editingTaskList != nil },
+                        set: { newValue in
+                            if !newValue { editingTaskList = nil }
+                        }
+                    ),
+                    list: list
+                ) { updatedList, newName, newBullet, newTheme in
+                    updatedList.name = newName
+                    updatedList.useBulletPoints = newBullet
+                    updatedList.theme = newTheme
+                    do {
+                        try viewContext.save()
+                    } catch {
+                        print("Error updating list: \(error.localizedDescription)")
+                    }
+                    // Dismiss the sheet by clearing the editing item.
+                    editingTaskList = nil
                 }
             }
         }
-        .sheet(isPresented: $isShowingNewListPrompt) {
-            NewListView(
-                isPresented: $isShowingNewListPrompt,
-                createList: { name, useBulletPoints, theme in
-                    addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
-                }
-            )
-        }
     }
     
+    // MARK: - Helper Methods
     
     private func addTaskList(withName name: String, useBulletPoints: Bool = true, theme: String = "default") {
-        withAnimation(.bouncy(duration: 0.5)) {
+        withAnimation {
             var finalName = name
-            
-            // Ensure the name is unique
             var counter = 1
             while taskLists.contains(where: { $0.name == finalName }) {
                 counter += 1
                 finalName = "\(name) \(counter)"
             }
-            
-            // Create the new list with the user-provided name
             let newList = TaskList(context: viewContext)
             newList.name = finalName
             newList.useBulletPoints = useBulletPoints
-            newList.theme = theme  // Store the theme
+            newList.theme = theme
             do {
                 try viewContext.save()
-                selectedTaskList = newList
             } catch {
                 print("Error saving new list: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    private func delete(list: TaskList) {
+        withAnimation {
+            viewContext.delete(list)
+            saveChanges()
+        }
+    }
+    
+    private func saveChanges() {
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error saving changes: \(error.localizedDescription)")
+        }
+    }
+    
+    private func getThemeColor(for themeKey: String) -> Color {
+        // Customize these theme colors as you wish.
+        let themes: [String: Color] = [
+            "default": Color.gray,
+            "blue": Color.blue,
+            "green": Color.green,
+            "pink": Color.pink,
+            "purple": Color.purple,
+            "yellow": Color.yellow
+        ]
+        return themes[themeKey] ?? Color.gray
+    }
+}
+
+// MARK: - Custom Card Views
+
+struct TaskListCard: View {
+    var list: TaskList
+    var themeColor: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(list.name ?? "Unnamed List")
+                .font(.headline)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+            Spacer()
+        }
+        .padding()
+        .frame(minHeight: 120)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(themeColor.opacity(0.2))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(themeColor, lineWidth: 1)
+        )
+        .shadow(color: themeColor.opacity(0.3), radius: 4, x: 0, y: 2)
+    }
+}
+
+struct NewListCard: View {
+    var action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack {
+                Image(systemName: "plus")
+                    .font(.system(size: 36))
+                    .foregroundColor(.blue)
+                Text("New List")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+            }
+            .padding()
+            .frame(minHeight: 120)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6]))
+                    .foregroundColor(.blue)
+            )
         }
     }
 }
@@ -688,7 +787,7 @@ struct PreviewTaskRow: View {
         }
     }
 }
-#Preview {
-    ContentView()
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-}
+//#Preview {
+//    ContentView()
+//        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+//}

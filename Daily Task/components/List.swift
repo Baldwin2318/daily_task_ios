@@ -38,114 +38,136 @@ struct ListView: View {
     @State private var editingItemID: UUID?
     
     var body: some View {
-        ZStack {
-            if items.isEmpty {
-                // Empty state view
-                VStack(spacing: 16) {
-                    Image(systemName: "list.bullet.clipboard")
-                        .renderingMode(.original)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 80, height: 80)
-                        .foregroundColor(.secondary)
-                    Text("No tasks available.\nTap + to add one!")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                    
-                    Button {
-                        withAnimation(.easeInOut(duration: 1.0)) {
-                            addNewItem()
-                        }
-                    } label: {
-                        Label("Add Task", systemImage: "plus")
-                            .font(.headline)
-                            .padding()
-                            .background(getThemeColorAddButton(taskList.theme ?? "default"))
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                }
-            } else {
-                // Main list view with tasks
-                VStack {
-                    List {
-                        ForEach(items) { item in
-                            TaskRow(
-                                useBulletPoints: taskList.useBulletPoints,
-                                item: item,
-                                isEditing: editingItemID == item.id,
-                                focusedField: $focusedField,
-                                onToggleComplete: { toggleItemComplete(item) },
-                                onStartEditing: { startEditing(item) },
-                                onEditingChanged: { newText in
-                                    item.text = newText
-                                    saveContext()
-                                },
-                                onEndEditing: { endEditing() }
-                            )
-                            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-                            .listRowBackground(getThemeColor(taskList.theme ?? "default"))
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                // Delete action
-                                Button(role: .destructive) {
-                                    deleteItem(item)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                // Priority action
-                                Button {
-                                    togglePriority(item)
-                                } label: {
-                                    Label(
-                                        item.isPriority ? "Remove Priority" : "Prioritize",
-                                        systemImage: "flag"
-                                    )
-                                }
-                                .tint(.orange)
-                            }
-                        }
-                    }
-                    .listStyle(PlainListStyle())
-                    .background(
-                        // Background tap detector to end editing
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if editingItemID != nil {
-                                    endEditing()
-                                }
-                            }
-                    )
-                }
-                .background(getThemeColor(taskList.theme ?? "default"))
-                
-                // floating add button to be visible all the time
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button(action: {
+        NavigationView {
+            ZStack {
+                if items.isEmpty {
+                    // Empty state view
+                    VStack(spacing: 16) {
+                        Image(systemName: "list.bullet.clipboard")
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .foregroundColor(.secondary)
+                        Text("No tasks available.\nTap + to add one!")
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+                        
+                        Button {
                             withAnimation(.easeInOut(duration: 1.0)) {
                                 addNewItem()
                             }
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20))
+                        } label: {
+                            Label("Add Task", systemImage: "plus")
+                                .font(.headline)
+                                .padding()
+                                .background(getThemeColorAddButton(taskList.theme ?? "default"))
                                 .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.blue)
-                                .clipShape(Circle())
-                                .shadow(radius: 4)
+                                .cornerRadius(10)
                         }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20)
+                    }
+                } else {
+                    // Main list view with tasks
+                    VStack {
+                        List {
+                            ForEach(items) { item in
+                                TaskRow(
+                                    useBulletPoints: taskList.useBulletPoints,
+                                    item: item,
+                                    isEditing: editingItemID == item.id,
+                                    focusedField: $focusedField,
+                                    onToggleComplete: { toggleItemComplete(item) },
+                                    onStartEditing: { startEditing(item) },
+                                    onEditingChanged: { newText in
+                                        item.text = newText
+                                        saveContext()
+                                    },
+                                    onEndEditing: { endEditing() }
+                                )
+                                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                                .listRowBackground(getThemeColor(taskList.theme ?? "default"))
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    // Delete action
+                                    Button(role: .destructive) {
+                                        deleteItem(item)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    // Priority action
+                                    Button {
+                                        togglePriority(item)
+                                    } label: {
+                                        Label(
+                                            item.isPriority ? "Remove Priority" : "Prioritize",
+                                            systemImage: "flag"
+                                        )
+                                    }
+                                    .tint(.orange)
+                                }
+                            }
+                        }
+                        .listStyle(PlainListStyle())
+                        .background(
+                            // Background tap detector to end editing
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if editingItemID != nil {
+                                        endEditing()
+                                    }
+                                }
+                        )
+                    }
+                    .background(getThemeColor(taskList.theme ?? "default"))
+                    
+                    // floating add button to be visible all the time
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 1.0)) {
+                                    addNewItem()
+                                }
+                            }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 50)
+                                    .background(getThemeColorAddButton(taskList.theme ?? "default"))
+                                    .clipShape(Circle())
+                                    .shadow(radius: 4)
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(taskList.name ?? "Checklist")
+            .navigationBarTitleDisplayMode(.large)
+            .sheet(isPresented: $showingCompletedTasksSheet) {
+                CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
+            }
+            .sheet(isPresented: $isSharePresented) {
+                ShareSheet(items: [generateShareText()])
+            }
+            .sheet(isPresented: $showingScanner) {
+                DocumentScannerView { scannedTexts in
+                    // Process the recognized texts.
+                    // For example, split each string into lines if needed and add them as tasks.
+                    for text in scannedTexts {
+                        // Optionally, you can further split text by newlines if one scanned result contains multiple tasks.
+                        let tasks = text.components(separatedBy: "\n").filter { !$0.isEmpty }
+                        for task in tasks {
+                            addScannedTask(text: task)
+                        }
                     }
                 }
             }
         }
-        .navigationTitle(taskList.name ?? "Checklist")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
@@ -178,25 +200,6 @@ struct ListView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 18))
-                }
-            }
-        }
-        .sheet(isPresented: $showingCompletedTasksSheet) {
-            CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
-        }
-        .sheet(isPresented: $isSharePresented) {
-            ShareSheet(items: [generateShareText()])
-        }
-        .sheet(isPresented: $showingScanner) {
-            DocumentScannerView { scannedTexts in
-                // Process the recognized texts.
-                // For example, split each string into lines if needed and add them as tasks.
-                for text in scannedTexts {
-                    // Optionally, you can further split text by newlines if one scanned result contains multiple tasks.
-                    let tasks = text.components(separatedBy: "\n").filter { !$0.isEmpty }
-                    for task in tasks {
-                        addScannedTask(text: task)
-                    }
                 }
             }
         }
