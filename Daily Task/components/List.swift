@@ -147,7 +147,6 @@ struct ListView: View {
                 }
             }
             .navigationTitle(taskList.name ?? "Checklist")
-            .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingCompletedTasksSheet) {
                 CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
             }

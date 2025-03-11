@@ -12,55 +12,70 @@ struct ContentView: View {
     // State for presenting sheets
     @State private var isShowingNewListPrompt = false
     @State private var editingTaskList: TaskList? = nil
+    
+    // New state for automatically navigating to a list after creation
+    @State private var selectedTaskList: TaskList? = nil
 
     // Define grid columns for a two-column layout
     let columns = [
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16)
     ]
-
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    // New List Card
-                    NewListCard {
-                        isShowingNewListPrompt = true
+    
+    var taskGrid: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            NewListCard {
+                isShowingNewListPrompt = true
+            }
+            
+            ForEach(taskLists, id: \.self) { list in
+                NavigationLink(destination: ListView(taskList: list)) {
+                    TaskListCard(taskList: list, themeColor: getThemeColor(for: list.theme ?? "default"))
+                }
+                .contextMenu {
+                    Button {
+                        editingTaskList = list
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
                     }
-                    
-                    // Existing List Cards
-                    ForEach(taskLists, id: \.self) { list in
-                        NavigationLink(destination: ListView(taskList: list)) {
-                            TaskListCard(list: list, themeColor: getThemeColor(for: list.theme ?? "default"))
-                        }
-                        .contextMenu {
-                            Button {
-                                editingTaskList = list
-                                
-                            } label: {
-                                Label("Edit", systemImage: "pencil")
-                            }
-                            Button(role: .destructive) {
-                                delete(list: list)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
+                    Button(role: .destructive) {
+                        delete(list: list)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
-                .padding()
+            }
+        }
+        .padding()
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                ScrollView {
+                    taskGrid
+                        .padding()
+                }
+                // Hidden NavigationLink that becomes active when selectedTaskList is set
+                NavigationLink(
+                    destination: Group {
+                        if let list = selectedTaskList {
+                            ListView(taskList: list)
+                        } else {
+                            EmptyView()
+                        }
+                    },
+                    isActive: Binding<Bool>(
+                        get: { selectedTaskList != nil },
+                        set: { newValue in
+                            if !newValue { selectedTaskList = nil }
+                        }
+                    )
+                ) {
+                    EmptyView()
+                }
             }
             .navigationTitle("My Lists")
-//            .navigationBarTitleDisplayMode(.inline) // This line forces the inline display mode.
-//            .toolbar {
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    Button(action: {
-//                        isShowingNewListPrompt = true
-//                    }) {
-//                        Image(systemName: "plus")
-//                    }
-//                }
-//            }
             .sheet(isPresented: $isShowingNewListPrompt) {
                 NewListView(isPresented: $isShowingNewListPrompt) { name, useBulletPoints, theme in
                     addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
@@ -84,7 +99,6 @@ struct ContentView: View {
                     } catch {
                         print("Error updating list: \(error.localizedDescription)")
                     }
-                    // Dismiss the sheet by clearing the editing item.
                     editingTaskList = nil
                 }
             }
@@ -107,6 +121,8 @@ struct ContentView: View {
             newList.theme = theme
             do {
                 try viewContext.save()
+                // Set selectedTaskList so the NavigationLink becomes active
+                selectedTaskList = newList
             } catch {
                 print("Error saving new list: \(error.localizedDescription)")
             }
@@ -129,7 +145,6 @@ struct ContentView: View {
     }
     
     private func getThemeColor(for themeKey: String) -> Color {
-        // Customize these theme colors as you wish.
         let themes: [String: Color] = [
             "default": Color.gray,
             "blue": Color.blue,
@@ -143,17 +158,63 @@ struct ContentView: View {
 }
 
 // MARK: - Custom Card Views
-
 struct TaskListCard: View {
-    var list: TaskList
+    var taskList: TaskList
     var themeColor: Color
+
+    @FetchRequest var items: FetchedResults<Item>
+    
+    init(taskList: TaskList, themeColor: Color) {
+        self.taskList = taskList
+        self.themeColor = themeColor
+        _items = FetchRequest<Item>(
+            sortDescriptors: [
+                NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
+                NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
+            ],
+            predicate: NSPredicate(format: "list == %@", taskList),
+            animation: .default
+        )
+    }
+    
+    // Use the fetched items to show a preview (first three)
+    var previewTasks: [Item] {
+        return Array(items.prefix(3))
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(list.name ?? "Unnamed List")
+            // List Title
+            Text(taskList.name ?? "Unnamed List")
                 .font(.headline)
                 .foregroundColor(.primary)
                 .lineLimit(2)
+            
+            // Preview Tasks
+            if !previewTasks.isEmpty {
+                ForEach(previewTasks, id: \.self) { task in
+                    if taskList.useBulletPoints {
+                        HStack {
+                            Image(systemName: task.isCompleted ? "checkmark.circle" : "circle")
+                                .foregroundColor(task.isCompleted ? .green : .primary)
+                            Text(task.text ?? "Task")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text(task.text ?? "Task")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            } else {
+                Text("No tasks")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
             Spacer()
         }
         .padding()
