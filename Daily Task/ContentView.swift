@@ -15,6 +15,14 @@ struct ContentView: View {
     
     // New state for automatically navigating to a list after creation
     @State private var selectedTaskList: TaskList? = nil
+    
+    // Selection mode state
+    @State private var isSelectionMode = false
+    @State private var selectedLists = Set<TaskList>()
+    
+    // State for deletion confirmation (single deletion)
+    @State private var listToDelete: TaskList? = nil
+    @State private var showingDeleteAlert = false
 
     // Define grid columns for a two-column layout
     let columns = [
@@ -22,31 +30,66 @@ struct ContentView: View {
         GridItem(.flexible(), spacing: 16)
     ]
     
+    @Namespace private var animationNamespace
+
     var taskGrid: some View {
         LazyVGrid(columns: columns, spacing: 16) {
-            NewListCard {
-                isShowingNewListPrompt = true
+            if !isSelectionMode {
+                NewListCard {
+                    isShowingNewListPrompt = true
+                }
+                .matchedGeometryEffect(id: "plusCard", in: animationNamespace)
+                // Immediately disappear without animation when selection mode toggles
+                .transition(.identity)
+                .animation(.none, value: isSelectionMode)
             }
             
             ForEach(taskLists, id: \.self) { list in
-                NavigationLink(destination: ListView(taskList: list)) {
-                    TaskListCard(taskList: list, themeColor: getThemeColor(for: list.theme ?? "default"))
-                }
-                .contextMenu {
-                    Button {
-                        editingTaskList = list
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
+                if isSelectionMode {
+                    TaskListCard(
+                        taskList: list,
+                        themeColor: getThemeColor(for: list.theme ?? "default"),
+                        isSelectionMode: true,
+                        isSelected: selectedLists.contains(list)
+                    )
+                    .matchedGeometryEffect(id: list.objectID, in: animationNamespace)
+                    .onTapGesture {
+                        toggleSelection(for: list)
                     }
-                    Button(role: .destructive) {
-                        delete(list: list)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                } else {
+                    NavigationLink(destination: ListView(taskList: list)) {
+                        TaskListCard(
+                            taskList: list,
+                            themeColor: getThemeColor(for: list.theme ?? "default"),
+                            isSelectionMode: false,
+                            isSelected: false
+                        )
+                        .matchedGeometryEffect(id: list.objectID, in: animationNamespace)
+                        // Add a transition for removal
+                        .transition(.move(edge: .trailing))
+                    }
+                    .contextMenu {
+                        Button {
+                            editingTaskList = list
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            // Set the deletion target and show the confirmation dialog with animation
+                            withAnimation {
+                                listToDelete = list
+                                showingDeleteAlert = true
+                            }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
                 }
             }
         }
         .padding()
+        // Animate layout changes (for selection mode changes or deletions)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.2), value: isSelectionMode)
     }
     
     var body: some View {
@@ -76,6 +119,29 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("My Lists")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if isSelectionMode {
+                        Button("Cancel") {
+                            exitSelectionMode()
+                        }
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !isSelectionMode {
+                        Button("Select") {
+                            enterSelectionMode()
+                        }
+                    } else {
+                        Button(action: {
+                            confirmDeleteSelected()
+                        }) {
+                            Image(systemName: "trash")
+                        }
+                        .disabled(selectedLists.isEmpty)
+                    }
+                }
+            }
             .sheet(isPresented: $isShowingNewListPrompt) {
                 NewListView(isPresented: $isShowingNewListPrompt) { name, useBulletPoints, theme in
                     addTaskList(withName: name, useBulletPoints: useBulletPoints, theme: theme)
@@ -102,10 +168,67 @@ struct ContentView: View {
                     editingTaskList = nil
                 }
             }
+            // Use a confirmation dialog so it doesn't conflict with the context menu dismiss
+            .confirmationDialog("Delete \(isSelectionMode ? "Lists" : "List")",
+                                  isPresented: $showingDeleteAlert,
+                                  titleVisibility: .visible) {
+                if isSelectionMode {
+                    Button("Delete \(selectedLists.count) lists", role: .destructive) {
+                        deleteSelectedLists()
+                    }
+                } else if let list = listToDelete {
+                    Button("Delete", role: .destructive) {
+                        delete(list: list)
+                        listToDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    // Clear any deletion targets
+                    listToDelete = nil
+                }
+            } message: {
+                if isSelectionMode {
+                    Text("Are you sure you want to delete \(selectedLists.count) lists? This action cannot be undone.")
+                } else if let list = listToDelete {
+                    Text("Are you sure you want to delete \"\(list.name ?? "Unnamed List")\"? This action cannot be undone.")
+                }
+            }
         }
     }
     
     // MARK: - Helper Methods
+    
+    private func enterSelectionMode() {
+        isSelectionMode = true
+        selectedLists.removeAll()
+    }
+    
+    private func exitSelectionMode() {
+        isSelectionMode = false
+        selectedLists.removeAll()
+    }
+    
+    private func toggleSelection(for list: TaskList) {
+        if selectedLists.contains(list) {
+            selectedLists.remove(list)
+        } else {
+            selectedLists.insert(list)
+        }
+    }
+    
+    private func confirmDeleteSelected() {
+        showingDeleteAlert = true
+    }
+    
+    private func deleteSelectedLists() {
+        withAnimation {
+            for list in selectedLists {
+                viewContext.delete(list)
+            }
+            saveChanges()
+            exitSelectionMode()
+        }
+    }
     
     private func addTaskList(withName name: String, useBulletPoints: Bool = true, theme: String = "default") {
         withAnimation {
@@ -156,17 +279,20 @@ struct ContentView: View {
         return themes[themeKey] ?? Color.gray
     }
 }
-
 // MARK: - Custom Card Views
 struct TaskListCard: View {
     var taskList: TaskList
     var themeColor: Color
+    var isSelectionMode: Bool
+    var isSelected: Bool
 
     @FetchRequest var items: FetchedResults<Item>
     
-    init(taskList: TaskList, themeColor: Color) {
+    init(taskList: TaskList, themeColor: Color, isSelectionMode: Bool = false, isSelected: Bool = false) {
         self.taskList = taskList
         self.themeColor = themeColor
+        self.isSelectionMode = isSelectionMode
+        self.isSelected = isSelected
         _items = FetchRequest<Item>(
             sortDescriptors: [
                 NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
@@ -228,7 +354,23 @@ struct TaskListCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(themeColor, lineWidth: 1)
         )
+        .overlay(
+            isSelectionMode ? selectionOverlay : nil
+        )
         .shadow(color: themeColor.opacity(0.3), radius: 4, x: 0, y: 2)
+    }
+    
+    private var selectionOverlay: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundColor(isSelected ? .blue : .gray)
+                    .padding(8)
+            }
+            Spacer()
+        }
     }
 }
 
