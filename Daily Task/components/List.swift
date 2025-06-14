@@ -171,7 +171,7 @@ struct ListView: View {
                     Button(action: {
                         shareList()
                     }) {
-                        Label("Copy & Share List", systemImage: "doc.on.doc")
+                        Label("Share List (RAW)", systemImage: "square.and.arrow.up")
                     }
                     
                     // New scanner menu item
