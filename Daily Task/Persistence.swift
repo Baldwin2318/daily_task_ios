@@ -43,8 +43,7 @@ struct PersistenceController {
             // Enable history tracking and remote change notifications
             description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
             description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-            // Optionally, you can set a CloudKit container identifier if needed:
-            // description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.com.yourcompany.DailyTask")
+            description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.Baldwin.Daily-Task")
         }
         
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
