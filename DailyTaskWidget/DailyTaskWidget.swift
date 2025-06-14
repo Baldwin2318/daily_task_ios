@@ -104,9 +104,9 @@ extension ConfigurationAppIntent {
     }
 }
 
-#Preview(as: .systemSmall) {
-    DailyTaskWidget()
-} timeline: {
-    SimpleEntry(date: .now, configuration: .smiley, tasks: [])
-    SimpleEntry(date: .now, configuration: .starEyes, tasks: [])
-}
+//#Preview(as: .systemSmall) {
+//    DailyTaskWidget()
+//} timeline: {
+//    SimpleEntry(date: .now, configuration: .smiley, tasks: [])
+//    SimpleEntry(date: .now, configuration: .starEyes, tasks: [])
+//}
