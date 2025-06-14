@@ -19,6 +19,10 @@ struct PersistenceController {
         
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
+        } else {
+            let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.baldwin.DailyTask")
+            let storeURL = containerURL!.appendingPathComponent("Daily_Task.sqlite")
+            container.persistentStoreDescriptions.first!.url = storeURL
         }
         
         // Configure the persistent store for CloudKit syncing:
