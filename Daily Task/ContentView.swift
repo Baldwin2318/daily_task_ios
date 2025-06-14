@@ -295,6 +295,7 @@ struct TaskListCard: View {
         self.isSelected = isSelected
         _items = FetchRequest<Item>(
             sortDescriptors: [
+                NSSortDescriptor(keyPath: \Item.sortOrder, ascending: true),
                 NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
                 NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
             ],

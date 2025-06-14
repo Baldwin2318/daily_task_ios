@@ -16,9 +16,10 @@ struct ListView: View {
     
     init(taskList: TaskList) {
         self.taskList = taskList
-        // Updated fetch request to sort by priority first, then timestamp
+        // Updated fetch request to sort by sortOrder first, then priority, then timestamp
         _items = FetchRequest<Item>(
             sortDescriptors: [
+                NSSortDescriptor(keyPath: \Item.sortOrder, ascending: true),
                 NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
                 NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
             ],
@@ -105,6 +106,7 @@ struct ListView: View {
                                     .tint(.orange)
                                 }
                             }
+                            .onMove(perform: moveItem)
                         }
                         .listStyle(PlainListStyle())
                         .background(
@@ -365,5 +367,16 @@ struct ListView: View {
             
             saveContext()
         }
+    }
+    
+    private func moveItem(from source: IndexSet, to destination: Int) {
+        var revisedItems = items.map { $0 }
+        revisedItems.move(fromOffsets: source, toOffset: destination)
+
+        for (index, item) in revisedItems.enumerated() {
+            item.sortOrder = Int64(index)
+        }
+
+        saveContext()
     }
 }
