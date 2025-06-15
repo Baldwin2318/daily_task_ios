@@ -138,6 +138,7 @@ struct ContentView: View {
                         }) {
                             Image(systemName: "trash")
                         }
+                        .tint(.red)
                         .disabled(selectedLists.isEmpty)
                     }
                 }
