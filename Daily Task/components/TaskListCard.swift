@@ -28,7 +28,7 @@ struct TaskListCard: View {
                 NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
                 NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
             ],
-            predicate: NSPredicate(format: "list == %@", taskList),
+            predicate: NSPredicate(format: "list == %@ AND (isArchived == NO OR isArchived == nil)", taskList),
             animation: .default
         )
     }
