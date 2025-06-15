@@ -14,6 +14,15 @@ struct ListView: View {
     
     @FetchRequest var items: FetchedResults<Item>
     
+    @State private var showingArchivedTasksSheet = false
+    @State private var showingCompletedTasksSheet = false
+    @State private var showingScanner = false
+    @State private var checkboxTapped = false
+    @State private var isSharePresented = false
+    
+    @FocusState private var focusedField: UUID?
+    @State private var editingItemID: UUID?
+    
     init(taskList: TaskList) {
         self.taskList = taskList
         // Updated fetch request to sort by sortOrder first, then priority, then timestamp
@@ -23,18 +32,10 @@ struct ListView: View {
                 NSSortDescriptor(keyPath: \Item.isPriority, ascending: false),
                 NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)
             ],
-            predicate: NSPredicate(format: "list == %@", taskList),
+            predicate: NSPredicate(format: "list == %@ AND (isArchived == NO OR isArchived == nil)", taskList),
             animation: .default
         )
     }
-    
-    @State private var showingCompletedTasksSheet = false
-    @State private var showingScanner = false
-    @State private var checkboxTapped = false
-    @State private var isSharePresented = false
-    
-    @FocusState private var focusedField: UUID?
-    @State private var editingItemID: UUID?
     
     var body: some View {
         NavigationView {
@@ -86,12 +87,13 @@ struct ListView: View {
                                 .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                                 .listRowBackground(getThemeColor(taskList.theme ?? "default"))
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    // Delete action
-                                    Button(role: .destructive) {
-                                        deleteItem(item)
+                                    // Archive action
+                                    Button {
+                                        archiveItem(item)
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
+                                    .tint(.red)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     // Priority action
@@ -147,6 +149,10 @@ struct ListView: View {
                 }
             }
             .navigationTitle(taskList.name ?? "Checklist")
+            .sheet(isPresented: $showingArchivedTasksSheet) {
+                ArchivedTasksSheet(taskList: taskList)
+                    .environment(\.managedObjectContext, viewContext)
+            }
             .sheet(isPresented: $showingCompletedTasksSheet) {
                 CompletedTasksSheet(completedTasks: Array(items).filter { $0.isCompleted })
             }
@@ -191,11 +197,18 @@ struct ListView: View {
                     }
                     
                     Button(role: .destructive, action: {
-                        // Delete all completed tasks
-                        deleteCompletedTasks()
+                        // Recently deleted
+                        showingArchivedTasksSheet.toggle()
                     }) {
-                        Label("Delete Completed", systemImage: "trash")
+                        Label("Recently Deleted", systemImage: "clock.arrow.circlepath")
                     }
+                    
+//                    Button(role: .destructive, action: {
+//                        // Delete all completed tasks
+//                        deleteCompletedTasks()
+//                    }) {
+//                        Label("Delete Completed", systemImage: "trash")
+//                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 18))
@@ -317,6 +330,13 @@ struct ListView: View {
         editingItemID = nil
         focusedField = nil
         saveContext()
+    }
+    
+    private func archiveItem(_ item: Item) {
+        withAnimation {
+            item.isArchived = true
+            saveContext()
+        }
     }
     
     private func deleteItem(_ item: Item) {
