@@ -179,7 +179,7 @@ struct ListView: View {
                     Button(action: {
                         shareList()
                     }) {
-                        Label("Share List (RAW)", systemImage: "square.and.arrow.up")
+                        Label("Share", systemImage: "square.and.arrow.up")
                     }
                     
                     // New scanner menu item
